@@ -1,0 +1,5 @@
+mkdir -p plugins/visual-editor
+touch plugins/visual-editor/.gitkeep
+git add plugins/visual-editor/.gitkeep
+git commit -m "إنشاء مجلد visual-editor داخل plugins"
+git push
