@@ -1,5 +1,0 @@
-mkdir -p src/components
-touch src/components/.gitkeep
-git add src/components/.gitkeep
-git commit -m "إنشاء مجلد src/components"
-git push
