@@ -1,61 +1,13 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Eye, Users, Clock, Share2, Trash2, Copy, BarChart2, Star, Play } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Clock, Eye, Users, Play, BarChart2, Copy } from "some-icon-library"; // استبدل بمكتبة الأيقونات لديك
+import { motion } from "framer-motion";
+import Card from "./Card"; // استبدل بالمسار الصحيح لكارد
 
-const ExamCard = ({ exam, index, onDelete, onCopyLink, onViewResults, isOwner }) => {
+const ExamCard = ({ exam, question, onCopyLink, onViewResults }) => {
   return (
-    <motion.div
-      key={exam.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ delay: index * 0.1 }}
-      whileHover={{ y: -5 }}
-    >
-      <Card className={`p-6 bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 backdrop-blur-sm hover:border-yellow-500/50 transition-all duration-300 flex flex-col h-full ${exam.is_permanent ? 'border-yellow-500/30' : ''}`}>
-        {exam.image_url && (
-          <div className="mb-4 rounded-lg overflow-hidden">
-            <img 
-              src={exam.image_url} 
-              alt={exam.title}
-              className="w-full h-32 object-cover"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
-          </div>
-        )}
-        
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-bold text-white truncate flex-1 flex items-center gap-2">
-            {exam.is_permanent && <Star className="w-5 h-5 text-yellow-400" />}
-            {exam.title}
-          </h3>
-          <div className="flex gap-2 ml-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onCopyLink(exam)}
-              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/20"
-              disabled={exam.is_permanent}
-            >
-              <Share2 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onDelete(exam.id)}
-              className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
-              disabled={!isOwner || exam.is_permanent}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-        
-        <div className="space-y-3 text-gray-300 flex-grow">
+    <motion.div>
+      <Card>
+        {/* معلومات الامتحان */}
+        <div className="flex gap-4">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-yellow-400" />
             <span>{exam.duration} دقيقة</span>
@@ -69,7 +21,28 @@ const ExamCard = ({ exam, index, onDelete, onCopyLink, onViewResults, isOwner })
             <span>{exam.participantsCount || 0} مشارك</span>
           </div>
         </div>
-        
+
+        {/* عرض السؤال */}
+        <div className="border p-4 my-4 bg-gray-50">
+          {question.type === "normal" ? (
+            <>
+              <h3 className="mb-2">{question.question_text}</h3>
+              <ul className="list-disc list-inside">
+                {question.options.map((opt, idx) => (
+                  <li key={idx}>{opt}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <>
+              <p className="mb-2">🧩 سؤال مركب:</p>
+              <h4 className="mb-1">1. {question.sub_question_1}</h4>
+              <h4>2. {question.sub_question_2}</h4>
+            </>
+          )}
+        </div>
+
+        {/* الأزرار */}
         <div className="mt-4 pt-4 border-t border-slate-700">
           {exam.is_permanent ? (
             <Button
