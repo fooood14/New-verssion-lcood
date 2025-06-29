@@ -10,12 +10,31 @@ import RegistrationStep from '@/components/exam/RegistrationStep';
 import ExamStep from '@/components/exam/ExamStep';
 import CompletionStep from '@/components/exam/CompletionStep';
 
-const isCorrect = (userAnswers, correctAnswers) => {
-    if (!userAnswers || !correctAnswers) return false;
+// تحديث isCorrect لدعم الأسئلة المركبة
+const isCorrect = (userAnswers, correctAnswers, questionType) => {
+  if (!userAnswers || !correctAnswers) return false;
+
+  if (questionType === 'compound') {
+    // هنا كل واحد من correctAnswers هو مصفوفة فرعية
+    if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
+    if (userAnswers.length !== correctAnswers.length) return false;
+
+    return userAnswers.every((partAnswers, index) => {
+      const correctPartAnswers = correctAnswers[index];
+      if (!Array.isArray(partAnswers) || !Array.isArray(correctPartAnswers)) return false;
+      if (partAnswers.length !== correctPartAnswers.length) return false;
+
+      const sortedUser = [...partAnswers].sort();
+      const sortedCorrect = [...correctPartAnswers].sort();
+      return sortedUser.every((val, i) => val === sortedCorrect[i]);
+    });
+  } else {
+    // single أو multiple
     if (userAnswers.length !== correctAnswers.length) return false;
     const sortedUserAnswers = [...userAnswers].sort();
     const sortedCorrectAnswers = [...correctAnswers].sort();
     return sortedUserAnswers.every((val, index) => val === sortedCorrectAnswers[index]);
+  }
 };
 
 const ExamSession = () => {
@@ -23,7 +42,7 @@ const ExamSession = () => {
   const navigate = useNavigate();
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
-  const [studentInfo, setStudentInfo] = useState({ name: '', phone: '', email: '' });
+  const [studentInfo, setStudentInfo] = useState({ name: '', phone: '' });
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -36,7 +55,7 @@ const ExamSession = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('tests')
-        .select(`id, title, duration, user_id, original_test_id, is_restricted_by_email, allowed_emails`)
+        .select(`id, title, duration, user_id, original_test_id`)
         .eq('id', examId)
         .single();
 
@@ -62,7 +81,9 @@ const ExamSession = () => {
       }
 
       const formattedExam = {
-        ...data,
+        id: data.id,
+        title: data.title,
+        duration: data.duration,
         questions: (questionsData || []).map(q => ({
           id: q.id,
           question: q.question_text,
@@ -71,7 +92,7 @@ const ExamSession = () => {
           question_type: q.question_type || 'single',
           video_url: null,
           time_limit_seconds: q.time_limit_seconds
-        })).sort((a,b) => (a.id || '').localeCompare(b.id || '')) 
+        })).sort((a,b) => (a.id || '').localeCompare(b.id || ''))
       };
       setExam(formattedExam);
       setTimeLeft(formattedExam.duration * 60);
@@ -92,7 +113,7 @@ const ExamSession = () => {
         setTimeLeft(prev => {
           if (prev <= 1) {
             clearInterval(timer);
-            submitExam(); 
+            submitExam();
             return 0;
           }
           return prev - 1;
@@ -104,31 +125,13 @@ const ExamSession = () => {
 
   const handleRegistrationSubmit = async (info) => {
     setStudentInfo(info);
-    
-    if (exam.is_restricted_by_email) {
-      const userEmail = info.email?.trim().toLowerCase();
-      if (!userEmail) {
-        toast({ title: "خطأ", description: "يرجى إدخال البريد الإلكتروني.", variant: "destructive" });
-        return;
-      }
-      if (!exam.allowed_emails || !exam.allowed_emails.includes(userEmail)) {
-        toast({ title: "خطأ", description: "هذا البريد الإلكتروني غير مسموح له بإجراء هذا الاختبار.", variant: "destructive" });
-        return;
-      }
-    } else {
-      if (!info.name.trim() || !info.phone.trim()) {
-        toast({ title: "خطأ", description: "يرجى إدخال الاسم ورقم الهاتف", variant: "destructive" });
-        return;
-      }
+    if (!info.name.trim() || !info.phone.trim()) {
+      toast({ title: "خطأ", description: "يرجى إدخال الاسم ورقم الهاتف", variant: "destructive" });
+      return;
     }
-
-    const participantData = exam.is_restricted_by_email
-    ? { session_id: examId, email: info.email.trim().toLowerCase(), session_user_id: sessionUserId }
-    : { session_id: examId, name: info.name, phone_number: info.phone, session_user_id: sessionUserId };
-    
     const { data, error } = await supabase
       .from('session_participants')
-      .insert([participantData])
+      .insert([{ session_id: examId, name: info.name, phone_number: info.phone, session_user_id: sessionUserId }])
       .select('id').single();
 
     if (error || !data) {
@@ -146,7 +149,7 @@ const ExamSession = () => {
 
     const score = exam.questions.reduce((total, question) => {
         const userAnswersForQuestion = answers[question.id] || [];
-        return total + (isCorrect(userAnswersForQuestion, question.correct_answers) ? 1 : 0);
+        return total + (isCorrect(userAnswersForQuestion, question.correct_answers, question.question_type) ? 1 : 0);
     }, 0);
 
     const percentage = exam.questions.length > 0 ? Math.round((score / exam.questions.length) * 100) : 0;
@@ -170,7 +173,7 @@ const ExamSession = () => {
     }
     
     setCurrentStep('completed');
-    toast({ title: "تم إنهاء الاختبار! 🎉", description: `نتيجتك: ${score}/${exam.questions.length} - متوسط النجاح: ${percentage}%` });
+    toast({ title: "تم إنهاء الاختبار! 🎉", description: `نتيجتك: ${score}/${exam.questions.length} (${percentage}%)` });
   };
 
   if (loading || !exam) {
