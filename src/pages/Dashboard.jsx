@@ -23,79 +23,90 @@ const Dashboard = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
+        let isMounted = true;
+
         const getUserAndExams = async () => {
             const { data: { user } } = await supabase.auth.getUser();
+            if (!isMounted) return;
+
             if (user) {
                 setUser(user);
-                fetchExams(user.id);
+                await fetchExams(user.id);
             } else {
                 navigate('/login');
             }
+            if (isMounted) setLoading(false);
         };
+
         getUserAndExams();
+
+        return () => { isMounted = false; }
     }, [navigate]);
 
     const fetchExams = async (userId) => {
         setLoading(true);
-        const { data: userTests, error: userTestsError } = await supabase
-            .from('tests')
-            .select('*, questions(id)')
-            .eq('user_id', userId)
-            .neq('is_permanent', true);
+        try {
+            const { data: userTests, error: userTestsError } = await supabase
+                .from('tests')
+                .select('*, questions(id)')
+                .eq('user_id', userId)
+                .neq('is_permanent', true);
 
-        if (userTestsError) {
-            toast({ title: 'خطأ في تحميل اختباراتك', description: userTestsError.message, variant: 'destructive' });
-        }
+            if (userTestsError) {
+                toast({ title: 'خطأ في تحميل اختباراتك', description: userTestsError.message, variant: 'destructive' });
+            }
 
-        const { data: permanentTests, error: permanentTestsError } = await supabase
-            .from('tests')
-            .select('*, questions(id)')
-            .eq('is_permanent', true);
-        
-        if (permanentTestsError) {
-            toast({ title: 'خطأ في تحميل الاختبارات الثابتة', description: permanentTestsError.message, variant: 'destructive' });
-        }
+            const { data: permanentTests, error: permanentTestsError } = await supabase
+                .from('tests')
+                .select('*, questions(id)')
+                .eq('is_permanent', true);
 
-        const allExams = [...(userTests || []), ...(permanentTests || [])];
-        const uniqueExams = Array.from(new Map(allExams.map(exam => [exam.id, exam])).values());
-        
-        // Get participants count for each exam
-        const examsWithParticipants = await Promise.all(uniqueExams.map(async (exam) => {
-            let participantsCount = 0;
-            
-            if (exam.is_permanent) {
-                // For permanent tests, count participants from all sessions created from this test
-                const { data: sessionTests } = await supabase
-                    .from('tests')
-                    .select('id')
-                    .eq('original_test_id', exam.id);
-                
-                if (sessionTests && sessionTests.length > 0) {
-                    const sessionIds = sessionTests.map(t => t.id);
+            if (permanentTestsError) {
+                toast({ title: 'خطأ في تحميل الاختبارات الثابتة', description: permanentTestsError.message, variant: 'destructive' });
+            }
+
+            const allExams = [...(userTests || []), ...(permanentTests || [])];
+            const uniqueExams = Array.from(new Map(allExams.map(exam => [exam.id, exam])).values());
+
+            const examsWithParticipants = await Promise.all(uniqueExams.map(async (exam) => {
+                let participantsCount = 0;
+
+                if (exam.is_permanent) {
+                    const { data: sessionTests } = await supabase
+                        .from('tests')
+                        .select('id')
+                        .eq('original_test_id', exam.id);
+
+                    if (sessionTests && sessionTests.length > 0) {
+                        const sessionIds = sessionTests.map(t => t.id);
+                        const { data: results } = await supabase
+                            .from('test_results')
+                            .select('participant_id')
+                            .in('test_id', sessionIds);
+
+                        participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
+                    }
+                } else {
                     const { data: results } = await supabase
                         .from('test_results')
                         .select('participant_id')
-                        .in('test_id', sessionIds);
-                    
+                        .eq('test_id', exam.id);
+
                     participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
                 }
-            } else {
-                // For regular tests, count participants directly
-                const { data: results } = await supabase
-                    .from('test_results')
-                    .select('participant_id')
-                    .eq('test_id', exam.id);
-                
-                participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
-            }
-            
-            return { ...exam, participantsCount };
-        }));
-        
-        const sortedExams = examsWithParticipants.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        setExams(sortedExams);
-        await calculateStats(sortedExams, userId);
-        setLoading(false);
+
+                return { ...exam, participantsCount };
+            }));
+
+            const sortedExams = examsWithParticipants.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            if (isMounted) setExams(sortedExams);
+
+            await calculateStats(sortedExams, userId);
+        } catch (error) {
+            toast({ title: 'خطأ غير متوقع', description: 'حدث خطأ أثناء تحميل البيانات', variant: 'destructive' });
+        } finally {
+            if (isMounted) setLoading(false);
+        }
     };
 
     const calculateStats = async (allExams, userId) => {
@@ -109,12 +120,12 @@ const Dashboard = () => {
                 allSessionTestIds = sessionTests.map(t => t.id);
             }
         }
-        
+
         const relevantTestIds = [...new Set([...userExamIds, ...allSessionTestIds])];
 
         if (relevantTestIds.length === 0) {
-             setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
-             return;
+            if (isMounted) setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
+            return;
         }
 
         const { data: results, error } = await supabase
@@ -124,15 +135,15 @@ const Dashboard = () => {
 
         if (error) {
             console.error("Error fetching results for stats:", error);
-            setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
+            if (isMounted) setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
             return;
         }
-        
+
         const totalParticipants = results ? new Set(results.map(r => r.participant_id)).size : 0;
         const totalScore = results ? results.reduce((acc, r) => acc + r.percentage, 0) : 0;
         const averageScore = results && results.length > 0 ? Math.round(totalScore / results.length) : 0;
-        
-        setStats({ totalTests: allExams.length, totalParticipants, averageScore });
+
+        if (isMounted) setStats({ totalTests: allExams.length, totalParticipants, averageScore });
     };
 
     const handleSignOut = async () => {
@@ -163,7 +174,7 @@ const Dashboard = () => {
 
     const handleCreateSessionOrCopyLink = async (exam) => {
         if (!user) return;
-    
+
         if (exam.is_permanent) {
             const { data: newSessionTest, error } = await supabase
                 .from('tests')
@@ -181,7 +192,7 @@ const Dashboard = () => {
                 toast({ title: 'خطأ في إنشاء الجلسة', description: error.message, variant: 'destructive' });
                 return;
             }
-            
+
             toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن لشاشة المراقبة.' });
             navigate(`/results/${newSessionTest.id}`);
 
@@ -200,8 +211,8 @@ const Dashboard = () => {
         <div className="min-h-screen p-6">
             <header className="flex justify-between items-center mb-8">
                 <div>
-                     <h1 className="text-3xl font-bold text-white">لوحة التحكم</h1>
-                     <p className="text-slate-400">مرحباً بعودتك، {user?.email}</p>
+                    <h1 className="text-3xl font-bold text-white">لوحة التحكم</h1>
+                    <p className="text-slate-400">مرحباً بعودتك، {user?.email}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" onClick={handleAdminAccess} className="text-slate-300 hover:bg-slate-700 hover:text-yellow-400">
@@ -213,12 +224,12 @@ const Dashboard = () => {
                     </Button>
                 </div>
             </header>
-            
+
             <Logo />
 
             <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <DashboardStats stats={stats} />
-                
+
                 <div className="flex justify-between items-center mb-6 mt-10">
                     <h2 className="text-2xl font-semibold text-white">اختباراتك</h2>
                     <Button onClick={() => setShowCreateDialog(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
@@ -226,9 +237,12 @@ const Dashboard = () => {
                         إنشاء اختبار جديد
                     </Button>
                 </div>
-                
+
                 {loading ? (
-                    <div className="text-center text-white mt-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-3"></div><p>جاري تحميل الاختبارات...</p></div>
+                    <div className="text-center text-white mt-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-3"></div>
+                        <p>جاري تحميل الاختبارات...</p>
+                    </div>
                 ) : exams.length === 0 ? (
                     <div className="text-center py-16 bg-slate-800/50 rounded-lg border border-dashed border-slate-700">
                         <h3 className="text-xl font-semibold text-white">لم تقم بإنشاء أي اختبارات بعد</h3>
@@ -237,9 +251,9 @@ const Dashboard = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {exams.map((exam, index) => (
-                            <ExamCard 
-                                key={exam.id} 
-                                exam={exam} 
+                            <ExamCard
+                                key={exam.id}
+                                exam={exam}
                                 index={index}
                                 isOwner={exam.user_id === user?.id}
                                 onDelete={handleDelete}
@@ -253,10 +267,10 @@ const Dashboard = () => {
 
             <AnimatePresence>
                 {showCreateDialog && (
-                    <ExamForm onExamCreated={handleExamCreated} onCancel={() => setShowCreateDialog(false)} userId={user.id} />
+                    <ExamForm onExamCreated={handleExamCreated} onCancel={() => setShowCreateDialog(false)} userId={user?.id} />
                 )}
             </AnimatePresence>
-            <AdminLoginDialog 
+            <AdminLoginDialog
                 open={showAdminLogin}
                 onOpenChange={setShowAdminLogin}
             />
