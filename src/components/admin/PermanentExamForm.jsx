@@ -13,7 +13,6 @@ import { Textarea } from '@/components/ui/textarea';
 const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
   const [examTitle, setExamTitle] = useState('');
   const [examDuration, setExamDuration] = useState(60);
-  const [examImageUrl, setExamImageUrl] = useState('');
   const [questions, setQuestions] = useState([{
     id: crypto.randomUUID(),
     question: '',
@@ -31,7 +30,6 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
     if (examToEdit) {
       setExamTitle(examToEdit.title);
       setExamDuration(examToEdit.duration);
-      setExamImageUrl(examToEdit.image_url || '');
       setQuestions(examToEdit.questions.map(q => ({
           id: q.id,
           question: q.question,
@@ -114,42 +112,77 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
         setIsSubmitting(false); return;
     }
 
-    if (examToEdit) {
-      // Update logic will be complex, involving updates and inserts. Focusing on insert first.
-    }
-    
-    const { data: testData, error: testError } = await supabase
-      .from('tests')
-      .insert([{ title: examTitle, duration: examDuration, user_id: userId, is_permanent: true, image_url: examImageUrl }])
-      .select().single();
-      
-    if (testError) {
-        toast({ title: "خطأ", description: testError.message, variant: "destructive" });
-        setIsSubmitting(false); return;
-    }
+    try {
+      if (examToEdit && examToEdit.id) {
+        // تحديث اختبار موجود
+        const { error: updateError } = await supabase
+          .from('tests')
+          .update({ title: examTitle, duration: examDuration })
+          .eq('id', examToEdit.id);
 
-    const questionsToInsert = questions.map(q => ({
-        test_id: testData.id,
-        question_text: q.question,
-        options: q.options,
-        correct_answers: q.correct_answers,
-        question_type: q.question_type,
-        video_url: q.video_url,
-        time_limit_seconds: q.time_limit_seconds,
-        explanation: q.explanation,
-        explanation_video_url: q.explanation_video_url
-    }));
+        if (updateError) throw updateError;
 
-    const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
-    if (questionsError) {
-        await supabase.from('tests').delete().eq('id', testData.id);
-        toast({ title: "خطأ", description: `فشل في حفظ الأسئلة: ${questionsError.message}`, variant: "destructive" });
-        setIsSubmitting(false); return;
+        // حذف جميع الأسئلة القديمة المرتبطة بالاختبار
+        const { error: deleteQuestionsError } = await supabase
+          .from('questions')
+          .delete()
+          .eq('test_id', examToEdit.id);
+
+        if (deleteQuestionsError) throw deleteQuestionsError;
+
+        // إدخال الأسئلة الجديدة المرتبطة بالاختبار
+        const questionsToInsert = questions.map(q => ({
+          test_id: examToEdit.id,
+          question_text: q.question,
+          options: q.options,
+          correct_answers: q.correct_answers,
+          question_type: q.question_type,
+          video_url: q.video_url,
+          time_limit_seconds: q.time_limit_seconds,
+          explanation: q.explanation,
+          explanation_video_url: q.explanation_video_url
+        }));
+
+        const { error: insertQuestionsError } = await supabase.from('questions').insert(questionsToInsert);
+        if (insertQuestionsError) throw insertQuestionsError;
+
+        toast({ title: "تم التحديث!", description: "تم تعديل الاختبار بنجاح." });
+      } else {
+        // إنشاء اختبار جديد
+        const { data: testData, error: testError } = await supabase
+          .from('tests')
+          .insert([{ title: examTitle, duration: examDuration, user_id: userId, is_permanent: true }])
+          .select().single();
+
+        if (testError) throw testError;
+
+        const questionsToInsert = questions.map(q => ({
+          test_id: testData.id,
+          question_text: q.question,
+          options: q.options,
+          correct_answers: q.correct_answers,
+          question_type: q.question_type,
+          video_url: q.video_url,
+          time_limit_seconds: q.time_limit_seconds,
+          explanation: q.explanation,
+          explanation_video_url: q.explanation_video_url
+        }));
+
+        const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
+        if (questionsError) {
+          await supabase.from('tests').delete().eq('id', testData.id);
+          throw questionsError;
+        }
+
+        toast({ title: "تم بنجاح!", description: "تم حفظ الاختبار الثابت بنجاح." });
+      }
+
+      onExamCreated();
+    } catch (error) {
+      toast({ title: "خطأ", description: error.message || "حدث خطأ أثناء الحفظ.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    toast({ title: "تم بنجاح!", description: "تم حفظ الاختبار الثابت بنجاح." });
-    onExamCreated();
-    setIsSubmitting(false);
   };
 
   return (
@@ -160,10 +193,6 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><Label htmlFor="title" className="text-white mb-2 block">عنوان الاختبار</Label><Input id="title" value={examTitle} onChange={(e) => setExamTitle(e.target.value)} placeholder="أدخل عنوان الاختبار" className="bg-slate-700 border-slate-600 text-white" disabled={isSubmitting} /></div>
             <div><Label htmlFor="duration" className="text-white mb-2 block">المدة الإجمالية (دقائق)</Label><Input id="duration" type="number" value={examDuration} onChange={(e) => setExamDuration(parseInt(e.target.value) || 1)} className="bg-slate-700 border-slate-600 text-white" min="1" disabled={isSubmitting} /></div>
-          </div>
-          <div>
-            <Label htmlFor="imageUrl" className="text-white mb-2 block">رابط صورة الاختبار (اختياري)</Label>
-            <Input id="imageUrl" value={examImageUrl} onChange={(e) => setExamImageUrl(e.target.value)} placeholder="أدخل رابط صورة الاختبار" className="bg-slate-700 border-slate-600 text-white" disabled={isSubmitting} />
           </div>
           <div>
             <div className="flex justify-between items-center mb-4"><Label className="text-white text-lg">الأسئلة</Label><Button onClick={addQuestion} variant="outline" className="border-yellow-500 text-yellow-400 hover:bg-yellow-500/20" disabled={isSubmitting}><Plus className="w-4 h-4 ml-2" /> إضافة سؤال</Button></div>
