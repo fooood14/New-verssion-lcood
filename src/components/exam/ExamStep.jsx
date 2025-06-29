@@ -18,7 +18,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
   const resetQuestionTimer = () => {
       const newQuestion = exam.questions[currentQuestionIndex];
       setQuestionTimeLeft(newQuestion?.time_limit_seconds || 30);
-  }
+  };
 
   useEffect(() => {
     resetQuestionTimer();
@@ -34,20 +34,45 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
                 return 0;
             }
             return prev - 1;
-        })
+        });
     }, 1000);
     
     return () => clearInterval(timer);
   }, [questionTimeLeft, currentQuestionIndex]);
 
-
-  const handleAnswerSelect = (questionId, answerIndex) => {
+  // --- الدالة المعدلة لتسجيل الإجابات مع دعم الأسئلة المركبة ---
+  const handleAnswerSelect = (questionId, answerIndex, partIndex = null) => {
     const question = exam.questions.find(q => q.id === questionId);
     setAnswers(prev => {
       const newAnswers = { ...prev };
-      if (question.question_type === 'single') {
+
+      if (question.question_type === 'compound') {
+        // إجابات السؤال المركب: مصفوفة من مصفوفات للإجابات لكل جزء
+        let compoundAnswers = newAnswers[questionId] || [[], []];
+
+        if (!Array.isArray(compoundAnswers)) compoundAnswers = [[], []]; // تحصين
+
+        const partAnswers = compoundAnswers[partIndex] || [];
+
+        const answerPos = partAnswers.indexOf(answerIndex);
+
+        if (question.compound_parts[partIndex].question_type === 'single') {
+          // في حالة جزء سؤال من نوع single (اختيار واحد)
+          compoundAnswers[partIndex] = [answerIndex];
+        } else {
+          // جزء من نوع multiple (اختيارات متعددة)
+          if (answerPos === -1) {
+            compoundAnswers[partIndex] = [...partAnswers, answerIndex];
+          } else {
+            compoundAnswers[partIndex] = partAnswers.filter(i => i !== answerIndex);
+          }
+        }
+        newAnswers[questionId] = compoundAnswers;
+
+      } else if (question.question_type === 'single') {
         newAnswers[questionId] = [answerIndex];
       } else {
+        // multiple
         const currentAnswers = newAnswers[questionId] || [];
         const answerPos = currentAnswers.indexOf(answerIndex);
         if (answerPos === -1) {
@@ -56,6 +81,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
           newAnswers[questionId] = currentAnswers.filter(i => i !== answerIndex);
         }
       }
+
       return newAnswers;
     });
   };
@@ -82,7 +108,8 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     }
   };
 
-  const currentAnswers = answers[currentQuestion.id] || [];
+  // إجابات السؤال الحالي، تأخذ شكل مختلف إذا كان مركب
+  const currentAnswers = answers[currentQuestion.id] || (currentQuestion.question_type === 'compound' ? [[], []] : []);
 
   return (
     <motion.div
@@ -122,50 +149,148 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
 
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
         <div className="flex justify-between items-start mb-6">
-            <h3 className="text-xl font-semibold text-white text-right flex-1">
-              {currentQuestion.question}
-            </h3>
-            {currentQuestion.time_limit_seconds && (
-                <div className="flex items-center gap-2 text-orange-400 font-mono text-lg mr-4">
-                    <Clock className="w-5 h-5"/>
-                    <span>{formatTime(questionTimeLeft)}</span>
-                </div>
-            )}
+          <h3 className="text-xl font-semibold text-white text-right flex-1">
+            {currentQuestion.question_type === 'compound' ? "سؤال مركب" : currentQuestion.question}
+          </h3>
+          {currentQuestion.time_limit_seconds && (
+              <div className="flex items-center gap-2 text-orange-400 font-mono text-lg mr-4">
+                  <Clock className="w-5 h-5"/>
+                  <span>{formatTime(questionTimeLeft)}</span>
+              </div>
+          )}
         </div>
 
-        <div className="space-y-4">
-          {currentQuestion.options.map((option, index) => (
-            <motion.div key={index} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <button onClick={() => handleAnswerSelect(currentQuestion.id, index)} className={`w-full p-4 text-right rounded-lg border-2 transition-all duration-300 ${ currentAnswers.includes(index) ? 'border-yellow-500 bg-yellow-500/20 text-white' : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:border-slate-500' }`}>
-                <div className="flex items-center justify-end gap-3">
-                  <span className="text-lg">{option}</span>
-                  {currentQuestion.question_type === 'single' ? (
-                      <div className={`w-4 h-4 rounded-full border-2 ${ currentAnswers.includes(index) ? 'border-yellow-500 bg-yellow-500' : 'border-slate-500' }`} />
-                  ) : (
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${ currentAnswers.includes(index) ? 'border-yellow-500 bg-yellow-500' : 'border-slate-500' }`}>
-                          {currentAnswers.includes(index) && <Check className="w-3 h-3 text-slate-900" />}
-                      </div>
-                  )}
+        {/* عرض السؤال حسب نوعه */}
+        {currentQuestion.question_type === 'compound' ? (
+          <div className="space-y-6">
+            {currentQuestion.compound_parts.map((part, partIndex) => {
+              const partAnswers = currentAnswers[partIndex] || [];
+              // تحديد نوع السؤال الجزئي (يمكن إضافته في كل part)
+              const partType = part.question_type || 'single'; // إذا لم يحدد، نفترض single
+
+              return (
+                <div key={partIndex} className="border p-4 rounded bg-slate-700/50">
+                  <h4 className="text-lg font-semibold text-white mb-4">شطر {partIndex === 0 ? 'أ' : 'ب'}</h4>
+                  <p className="mb-4 text-white">{part.question}</p>
+
+                  {part.options.map((option, optionIndex) => (
+                    <motion.div key={optionIndex} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <button
+                        onClick={() => handleAnswerSelect(currentQuestion.id, optionIndex, partIndex)}
+                        className={`w-full p-4 text-right rounded-lg border-2 transition-all duration-300 ${
+                          partAnswers.includes(optionIndex)
+                            ? 'border-yellow-500 bg-yellow-500/20 text-white'
+                            : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:border-slate-500'
+                        }`}
+                      >
+                        <div className="flex items-center justify-end gap-3">
+                          <span className="text-lg">{option}</span>
+                          {partType === 'single' ? (
+                            <div
+                              className={`w-4 h-4 rounded-full border-2 ${
+                                partAnswers.includes(optionIndex)
+                                  ? 'border-yellow-500 bg-yellow-500'
+                                  : 'border-slate-500'
+                              }`}
+                            />
+                          ) : (
+                            <div
+                              className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                                partAnswers.includes(optionIndex)
+                                  ? 'border-yellow-500 bg-yellow-500'
+                                  : 'border-slate-500'
+                              }`}
+                            >
+                              {partAnswers.includes(optionIndex) && (
+                                <Check className="w-3 h-3 text-slate-900" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    </motion.div>
+                  ))}
                 </div>
-              </button>
-            </motion.div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-white mb-6">{currentQuestion.question}</p>
+            {currentQuestion.options.map((option, index) => (
+              <motion.div key={index} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <button
+                  onClick={() => handleAnswerSelect(currentQuestion.id, index)}
+                  className={`w-full p-4 text-right rounded-lg border-2 transition-all duration-300 ${
+                    currentAnswers.includes(index)
+                      ? 'border-yellow-500 bg-yellow-500/20 text-white'
+                      : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-end gap-3">
+                    <span className="text-lg">{option}</span>
+                    {currentQuestion.question_type === 'single' ? (
+                      <div
+                        className={`w-4 h-4 rounded-full border-2 ${
+                          currentAnswers.includes(index) ? 'border-yellow-500 bg-yellow-500' : 'border-slate-500'
+                        }`}
+                      />
+                    ) : (
+                      <div
+                        className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                          currentAnswers.includes(index) ? 'border-yellow-500 bg-yellow-500' : 'border-slate-500'
+                        }`}
+                      >
+                        {currentAnswers.includes(index) && <Check className="w-3 h-3 text-slate-900" />}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <div className="flex justify-between items-center">
-        <Button onClick={prevQuestion} disabled={currentQuestionIndex === 0} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50"><ArrowRight className="w-4 h-4 ml-2" /> السؤال السابق</Button>
-        
+        <Button
+          onClick={prevQuestion}
+          disabled={currentQuestionIndex === 0}
+          variant="outline"
+          className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+        >
+          <ArrowRight className="w-4 h-4 ml-2" /> السؤال السابق
+        </Button>
+
         <div className="flex items-center gap-4">
-            <Button onClick={() => clearAnswer(currentQuestion.id)} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300" disabled={currentAnswers.length === 0}>
-                <RotateCcw className="w-4 h-4 ml-2" />
-                إلغاء
+          <Button
+            onClick={() => clearAnswer(currentQuestion.id)}
+            variant="outline"
+            className="border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+            disabled={
+              currentQuestion.question_type === 'compound'
+                ? currentAnswers.every(part => part.length === 0)
+                : currentAnswers.length === 0
+            }
+          >
+            <RotateCcw className="w-4 h-4 ml-2" />
+            إلغاء
+          </Button>
+          {currentQuestionIndex === exam.questions.length - 1 ? (
+            <Button
+              onClick={onSubmit}
+              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+            >
+              إنهاء الاختبار <CheckCircle className="w-4 h-4 mr-2" />
             </Button>
-            {currentQuestionIndex === exam.questions.length - 1 ? (
-              <Button onClick={onSubmit} className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white">إنهاء الاختبار <CheckCircle className="w-4 h-4 mr-2" /></Button>
-            ) : (
-              <Button onClick={nextQuestion} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">السؤال التالي <ArrowLeft className="w-4 h-4 mr-2" /></Button>
-            )}
+          ) : (
+            <Button
+              onClick={nextQuestion}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              السؤال التالي <ArrowLeft className="w-4 h-4 mr-2" />
+            </Button>
+          )}
         </div>
       </div>
     </motion.div>
