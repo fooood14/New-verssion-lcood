@@ -1,7 +1,8 @@
 import React from "react";
 import { Clock, Eye, Users, Play, BarChart2, Copy } from "lucide-react";
 import { motion } from "framer-motion";
-import Card from '../ui/card';
+import { Card } from '../ui/card';
+
 
 
 // زر بسيط، استبدله بزر مكتبتك إذا كنت تستخدم UI library مثل Chakra, Material, Tailwind Buttons...
