@@ -1,5 +1,0 @@
-mkdir plugins
-touch plugins/.gitkeep
-git add plugins/.gitkeep
-git commit -m "إضافة مجلد plugins لميزات إضافية"
-git push
