@@ -47,7 +47,6 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
       })));
     }
   }, [examToEdit]);
-
   const addQuestion = () => {
     setQuestions([...questions, {
       id: crypto.randomUUID(),
@@ -81,6 +80,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
 
     setQuestions(updated);
   };
+
   const addOption = (qIndex) => {
     const updated = [...questions];
     updated[qIndex].options.push('');
@@ -119,63 +119,30 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
     }
     setQuestions(updated);
   };
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-
-    const { data: testData, error: testError } = await supabase
-      .from('tests')
-      .insert([{ title: examTitle, duration: examDuration, user_id: userId, is_permanent: true, image_url: examImageUrl }])
-      .select()
-      .single();
-
-    if (testError) {
-      toast({ title: "خطأ", description: testError.message, variant: "destructive" });
-      setIsSubmitting(false);
-      return;
-    }
-
-    const questionsToInsert = questions.map(q => {
-      const base = {
-        test_id: testData.id,
-        question_text: q.question,
-        question_type: q.question_type,
-        video_url: q.video_url,
-        time_limit_seconds: q.time_limit_seconds,
-        explanation: q.explanation,
-        explanation_video_url: q.explanation_video_url
-      };
-
-      if (q.question_type === "compound") {
-        base.options = [];
-        base.correct_answers = [];
-        base.parts = q.parts.map(p => ({
-          text: p.text,
-          options: p.options,
-          correct_answer: p.correct_answer
-        }));
-      } else {
-        base.options = q.options;
-        base.correct_answers = q.correct_answers;
-      }
-
-      return base;
-    });
-
-    const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
-    if (questionsError) {
-      await supabase.from('tests').delete().eq('id', testData.id);
-      toast({ title: "خطأ", description: `فشل في حفظ الأسئلة: ${questionsError.message}`, variant: "destructive" });
-      setIsSubmitting(false);
-      return;
-    }
-
-    toast({ title: "تم بنجاح!", description: "تم حفظ الاختبار بنجاح." });
-    onExamCreated();
-    setIsSubmitting(false);
-  };
   return (
     <div className="space-y-6">
+      <div className="space-y-4 bg-slate-800 p-4 rounded">
+        <Label className="text-white">عنوان الاختبار:</Label>
+        <Input
+          className="bg-slate-700 text-white border-slate-600"
+          value={examTitle}
+          onChange={(e) => setExamTitle(e.target.value)}
+        />
+        <Label className="text-white">مدة الاختبار (بالدقائق):</Label>
+        <Input
+          type="number"
+          className="bg-slate-700 text-white border-slate-600"
+          value={examDuration}
+          onChange={(e) => setExamDuration(parseInt(e.target.value))}
+        />
+        <Label className="text-white">رابط صورة (اختياري):</Label>
+        <Input
+          className="bg-slate-700 text-white border-slate-600"
+          value={examImageUrl}
+          onChange={(e) => setExamImageUrl(e.target.value)}
+        />
+      </div>
+
       {questions.map((q, qIndex) => (
         <motion.div key={q.id} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
           <div className="flex justify-between items-center mb-3">
@@ -188,11 +155,9 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                   <TabsTrigger value="compound" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">سؤال مركب</TabsTrigger>
                 </TabsList>
               </Tabs>
-              {questions.length > 1 && (
-                <Button onClick={() => setQuestions(questions.filter((_, i) => i !== qIndex))} variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
+              <Button onClick={() => setQuestions(questions.filter((_, i) => i !== qIndex))} variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 
@@ -202,7 +167,6 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
             placeholder="أدخل نص السؤال"
             className="bg-slate-600 border-slate-500 text-white mb-4"
           />
-
           {/* السؤال المركب */}
           {q.question_type === 'compound' && (
             <div className="space-y-4 mb-4">
@@ -291,11 +255,22 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
               {q.options.map((opt, oIndex) => (
                 <div key={oIndex} className="flex items-center gap-2">
                   {q.question_type === 'single' ? (
-                    <input type="radio" name={`correct-${qIndex}`} checked={q.correct_answers[0] === oIndex} onChange={() => handleCorrectAnswerChange(qIndex, oIndex)} />
+                    <input
+                      type="radio"
+                      name={`correct-${qIndex}`}
+                      checked={q.correct_answers[0] === oIndex}
+                      onChange={() => handleCorrectAnswerChange(qIndex, oIndex)}
+                    />
                   ) : (
-                    <Checkbox checked={q.correct_answers.includes(oIndex)} onCheckedChange={() => handleCorrectAnswerChange(qIndex, oIndex)} />
+                    <Checkbox
+                      checked={q.correct_answers.includes(oIndex)}
+                      onCheckedChange={() => handleCorrectAnswerChange(qIndex, oIndex)}
+                    />
                   )}
-                  <Input value={opt} onChange={(e) => updateOption(qIndex, oIndex, e.target.value)} />
+                  <Input
+                    value={opt}
+                    onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
+                  />
                   <Button onClick={() => removeOption(qIndex, oIndex)}><X /></Button>
                 </div>
               ))}
