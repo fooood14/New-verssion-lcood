@@ -1,3 +1,4 @@
+// ... الاستيرادات كما هي
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, ArrowLeft, CheckCircle, Check, RotateCcw, Clock } from 'lucide-react';
@@ -132,9 +133,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
           )}
         </div>
 
-        {currentQuestion.question_type === 'compound' ? (
+        {currentQuestion.question_type === 'compound' && Array.isArray(currentQuestion.parts) ? (
           <div className="space-y-6">
-            {(currentQuestion.parts || []).map((part, partIdx) => (
+            {currentQuestion.parts.map((part, partIdx) => (
               <div key={partIdx} className="p-4 bg-slate-700/50 border border-slate-600 rounded-xl">
                 <p className="text-white font-medium mb-3">شطر {partIdx + 1}: {part.text}</p>
                 <div className="space-y-3">
