@@ -1,4 +1,3 @@
-// ... نفس الاستيرادات بدون تغيير
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, ArrowLeft, CheckCircle, Check, RotateCcw, Clock } from 'lucide-react';
@@ -27,7 +26,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
 
   useEffect(() => {
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
-
     const timer = setInterval(() => {
       setQuestionTimeLeft((prev) => {
         if (prev <= 1) {
@@ -37,7 +35,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [questionTimeLeft, currentQuestionIndex]);
 
@@ -66,9 +63,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
 
   const clearAnswer = (questionId) => {
     setAnswers((prev) => {
-      const newAnswers = { ...prev };
-      delete newAnswers[questionId];
-      return newAnswers;
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
     });
   };
 
@@ -126,9 +123,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
 
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
         <div className="flex justify-between items-start mb-6">
-          <h3 className="text-xl font-semibold text-white text-right flex-1">
-            {currentQuestion.question}
-          </h3>
+          <h3 className="text-xl font-semibold text-white text-right flex-1">{currentQuestion.question}</h3>
           {currentQuestion.time_limit_seconds && (
             <div className="flex items-center gap-2 text-orange-400 font-mono text-lg mr-4">
               <Clock className="w-5 h-5" />
@@ -182,21 +177,11 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
                 >
                   <div className="flex items-center justify-end gap-3">
                     <span className="text-lg">{option}</span>
-                    {currentQuestion.question_type === 'single' ? (
-                      <div className={`w-4 h-4 rounded-full border-2 ${
-                        currentAnswers.includes(index)
-                          ? 'border-yellow-500 bg-yellow-500'
-                          : 'border-slate-500'
-                      }`} />
-                    ) : (
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                        currentAnswers.includes(index)
-                          ? 'border-yellow-500 bg-yellow-500'
-                          : 'border-slate-500'
-                      }`}>
-                        {currentAnswers.includes(index) && <Check className="w-3 h-3 text-slate-900" />}
-                      </div>
-                    )}
+                    <div className={`w-4 h-4 rounded-full border-2 ${
+                      currentAnswers.includes(index)
+                        ? 'border-yellow-500 bg-yellow-500'
+                        : 'border-slate-500'
+                    }`} />
                   </div>
                 </button>
               </motion.div>
