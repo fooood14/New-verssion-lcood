@@ -1,3 +1,4 @@
+// [نفس الاستيرادات بدون تغيير]
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, X, Video, Info, Clock } from 'lucide-react';
@@ -81,6 +82,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
 
     setQuestions(updated);
   };
+
   const addOption = (qIndex) => {
     const updated = [...questions];
     updated[qIndex].options.push('');
@@ -181,31 +183,19 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
     onExamCreated();
     setIsSubmitting(false);
   };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-slate-800 p-6 rounded-lg shadow-lg max-h-[90vh] overflow-y-auto w-full max-w-4xl space-y-6">
 
-        {/* معلومات عامة عن الاختبار */}
+        {/* معلومات عامة */}
         <div className="space-y-4">
           <Label className="text-white">عنوان الاختبار:</Label>
-          <Input
-            className="bg-slate-700 text-white border-slate-600"
-            value={examTitle}
-            onChange={(e) => setExamTitle(e.target.value)}
-          />
+          <Input className="bg-slate-700 text-white border-slate-600" value={examTitle} onChange={(e) => setExamTitle(e.target.value)} />
           <Label className="text-white">مدة الاختبار (بالدقائق):</Label>
-          <Input
-            type="number"
-            className="bg-slate-700 text-white border-slate-600"
-            value={examDuration}
-            onChange={(e) => setExamDuration(parseInt(e.target.value))}
-          />
+          <Input type="number" className="bg-slate-700 text-white border-slate-600" value={examDuration} onChange={(e) => setExamDuration(parseInt(e.target.value))} />
           <Label className="text-white">رابط صورة (اختياري):</Label>
-          <Input
-            className="bg-slate-700 text-white border-slate-600"
-            value={examImageUrl}
-            onChange={(e) => setExamImageUrl(e.target.value)}
-          />
+          <Input className="bg-slate-700 text-white border-slate-600" value={examImageUrl} onChange={(e) => setExamImageUrl(e.target.value)} />
         </div>
 
         {/* الأسئلة */}
@@ -216,9 +206,9 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
               <div className="flex items-center gap-2">
                 <Tabs value={q.question_type} onValueChange={(val) => updateQuestionField(qIndex, 'question_type', val)} className="w-[260px]">
                   <TabsList className="grid w-full grid-cols-3 bg-slate-800">
-                    <TabsTrigger value="single" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">إجابة واحدة</TabsTrigger>
-                    <TabsTrigger value="multiple" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">إجابات متعددة</TabsTrigger>
-                    <TabsTrigger value="compound" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">سؤال مركب</TabsTrigger>
+                    <TabsTrigger value="single">إجابة واحدة</TabsTrigger>
+                    <TabsTrigger value="multiple">إجابات متعددة</TabsTrigger>
+                    <TabsTrigger value="compound">سؤال مركب</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 <Button onClick={() => setQuestions(questions.filter((_, i) => i !== qIndex))} variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
@@ -235,47 +225,19 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
               className="bg-slate-600 border-slate-500 text-white"
             />
 
-            {/* الوقت + فيديو */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-white flex items-center gap-2"><Clock className="w-4 h-4" /> مدة السؤال:</Label>
-                <Input
-                  type="number"
-                  className="bg-slate-600 border-slate-500 text-white"
-                  value={q.time_limit_seconds}
-                  onChange={(e) => updateQuestionField(qIndex, 'time_limit_seconds', parseInt(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label className="text-white flex items-center gap-2"><Video className="w-4 h-4" /> رابط الفيديو:</Label>
-                <Input
-                  className="bg-slate-600 border-slate-500 text-white"
-                  value={q.video_url}
-                  onChange={(e) => updateQuestionField(qIndex, 'video_url', e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* شرح */}
+            {/* الوقت */}
             <div>
-              <Label className="text-white flex items-center gap-2"><Info className="w-4 h-4" /> شرح الجواب:</Label>
-              <Textarea
-                className="bg-slate-600 border-slate-500 text-white"
-                value={q.explanation}
-                onChange={(e) => updateQuestionField(qIndex, 'explanation', e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label className="text-white flex items-center gap-2"><Video className="w-4 h-4" /> فيديو الشرح:</Label>
+              <Label className="text-white flex items-center gap-2"><Clock className="w-4 h-4" /> مدة السؤال (بالثواني):</Label>
               <Input
+                type="number"
                 className="bg-slate-600 border-slate-500 text-white"
-                value={q.explanation_video_url}
-                onChange={(e) => updateQuestionField(qIndex, 'explanation_video_url', e.target.value)}
+                value={q.time_limit_seconds}
+                onChange={(e) => updateQuestionField(qIndex, 'time_limit_seconds', parseInt(e.target.value))}
               />
             </div>
-            {/* السؤال المركب */}
-            {q.question_type === 'compound' && (
+
+            {/* نوع السؤال */}
+            {q.question_type === 'compound' ? (
               <div className="space-y-4">
                 {q.parts?.map((part, partIdx) => (
                   <div key={partIdx} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 space-y-3">
@@ -313,77 +275,78 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                           placeholder={`الخيار ${optIdx + 1}`}
                           className="bg-slate-600 border-slate-500 text-white"
                         />
-                        <Button
-                          onClick={() => {
-                            const updated = [...questions];
-                            updated[qIndex].parts[partIdx].options.splice(optIdx, 1);
-                            setQuestions(updated);
-                          }}
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:text-red-400 w-8 h-8"
-                        >
+                        <Button onClick={() => {
+                          const updated = [...questions];
+                          updated[qIndex].parts[partIdx].options.splice(optIdx, 1);
+                          setQuestions(updated);
+                        }} variant="ghost" size="icon" className="text-red-500 hover:text-red-400 w-8 h-8">
                           <X className="w-4 h-4" />
                         </Button>
                       </div>
                     ))}
-                    <Button
-                      onClick={() => {
-                        const updated = [...questions];
-                        updated[qIndex].parts[partIdx].options.push('');
-                        setQuestions(updated);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="text-green-400 border-green-500 hover:bg-green-500/20"
-                    >
+                    <Button onClick={() => {
+                      const updated = [...questions];
+                      updated[qIndex].parts[partIdx].options.push('');
+                      setQuestions(updated);
+                    }} variant="outline" size="sm" className="text-green-400 border-green-500 hover:bg-green-500/20">
                       <Plus className="w-4 h-4 ml-2" /> إضافة خيار
                     </Button>
                   </div>
                 ))}
-                <Button
-                  onClick={() => {
-                    const updated = [...questions];
-                    updated[qIndex].parts.push({ text: '', options: ['', ''], correct_answer: 0 });
-                    setQuestions(updated);
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="text-blue-400 border-blue-500 hover:bg-blue-500/20"
-                >
+                <Button onClick={() => {
+                  const updated = [...questions];
+                  updated[qIndex].parts.push({ text: '', options: ['', ''], correct_answer: 0 });
+                  setQuestions(updated);
+                }} variant="outline" size="sm" className="text-blue-400 border-blue-500 hover:bg-blue-500/20">
                   <Plus className="w-4 h-4 ml-2" /> إضافة شطر
                 </Button>
               </div>
-            )}
-
-            {/* الأسئلة العادية */}
-            {q.question_type !== 'compound' && (
+            ) : (
               <div className="space-y-3">
                 {q.options.map((opt, oIndex) => (
                   <div key={oIndex} className="flex items-center gap-2">
                     {q.question_type === 'single' ? (
-                      <input
-                        type="radio"
-                        name={`correct-${qIndex}`}
-                        checked={q.correct_answers[0] === oIndex}
-                        onChange={() => handleCorrectAnswerChange(qIndex, oIndex)}
-                      />
+                      <input type="radio" name={`correct-${qIndex}`} checked={q.correct_answers[0] === oIndex} onChange={() => handleCorrectAnswerChange(qIndex, oIndex)} />
                     ) : (
-                      <Checkbox
-                        checked={q.correct_answers.includes(oIndex)}
-                        onCheckedChange={() => handleCorrectAnswerChange(qIndex, oIndex)}
-                      />
+                      <Checkbox checked={q.correct_answers.includes(oIndex)} onCheckedChange={() => handleCorrectAnswerChange(qIndex, oIndex)} />
                     )}
-                    <Input
-                      value={opt}
-                      onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
-                    />
+                    <Input value={opt} onChange={(e) => updateOption(qIndex, oIndex, e.target.value)} />
                     <Button onClick={() => removeOption(qIndex, oIndex)}><X /></Button>
                   </div>
                 ))}
                 <Button onClick={() => addOption(qIndex)}>إضافة خيار</Button>
               </div>
             )}
+
+            {/* الفيديو والشرح في الأسفل */}
+            <div className="mt-6 space-y-4">
+              <div>
+                <Label className="text-white flex items-center gap-2"><Video className="w-4 h-4" /> رابط الفيديو:</Label>
+                <Input
+                  className="bg-slate-600 border-slate-500 text-white"
+                  value={q.video_url}
+                  onChange={(e) => updateQuestionField(qIndex, 'video_url', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label className="text-white flex items-center gap-2"><Info className="w-4 h-4" /> شرح الجواب:</Label>
+                <Textarea
+                  className="bg-slate-600 border-slate-500 text-white"
+                  value={q.explanation}
+                  onChange={(e) => updateQuestionField(qIndex, 'explanation', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label className="text-white flex items-center gap-2"><Video className="w-4 h-4" /> فيديو الشرح:</Label>
+                <Input
+                  className="bg-slate-600 border-slate-500 text-white"
+                  value={q.explanation_video_url}
+                  onChange={(e) => updateQuestionField(qIndex, 'explanation_video_url', e.target.value)}
+                />
+              </div>
+            </div>
           </motion.div>
         ))}
 
