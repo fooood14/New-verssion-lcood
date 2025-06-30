@@ -172,7 +172,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
 
     if (questionsError) {
       await supabase.from('tests').delete().eq('id', testData.id);
-      toast({ title: "خطأ", description: `فشل في حفظ الأسئلة: ${questionsError.message}`, variant: "destructive" });
+      toast({ title: "خطأ", description: فشل في حفظ الأسئلة: ${questionsError.message}, variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
@@ -186,53 +186,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
       <div className="bg-slate-800 p-6 rounded-lg shadow-lg max-h-[90vh] overflow-y-auto w-full max-w-4xl space-y-6">
 
         {/* معلومات عامة عن الاختبار */}
-{currentQuestion.question_type === 'compound' ? (
-  <div className="space-y-6">
-    {currentQuestion.parts?.map((part, partIndex) => (
-      <div key={partIndex} className="space-y-3 bg-slate-700 p-4 rounded border border-slate-600">
-        <p className="font-semibold text-white">شطر {partIndex + 1}: {part.text}</p>
-        {part.options.map((opt, optIndex) => (
-          <button
-            key={optIndex}
-            onClick={() => {
-              const questionId = currentQuestion.id;
-              const current = answers[questionId]?.[partIndex] || null;
-              const updated = { ...answers };
-              updated[questionId] = Array.isArray(updated[questionId]) ? [...updated[questionId]] : [];
-              updated[questionId][partIndex] = optIndex;
-              setAnswers(updated);
-            }}
-            className={`w-full text-right p-3 rounded-lg border-2 ${
-              answers[currentQuestion.id]?.[partIndex] === optIndex
-                ? 'border-yellow-500 bg-yellow-500/20'
-                : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
-            }`}
-          >
-            <span className="text-white">{opt}</span>
-          </button>
-        ))}
-      </div>
-    ))}
-  </div>
-) : (
-  <div className="space-y-4">
-    {currentQuestion.options.map((option, index) => (
-      <motion.div key={index} whileHover={{ scale: 1.02 }}>
-        <button
-          onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-          className={`w-full p-4 text-right rounded-lg border-2 ${
-            currentAnswers.includes(index)
-              ? 'border-yellow-500 bg-yellow-500/20'
-              : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
-          }`}
-        >
-          <span className="text-lg text-white">{option}</span>
-        </button>
-      </motion.div>
-    ))}
-  </div>
-)}
->
+        <div className="space-y-4">
           <Label className="text-white">عنوان الاختبار:</Label>
           <Input
             className="bg-slate-700 text-white border-slate-600"
@@ -340,7 +294,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                       <div key={optIdx} className="flex items-center gap-2">
                         <input
                           type="radio"
-                          name={`compound-correct-${qIndex}-${partIdx}`}
+                          name={compound-correct-${qIndex}-${partIdx}}
                           checked={part.correct_answer === optIdx}
                           onChange={() => {
                             const updated = [...questions];
@@ -356,7 +310,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                             updated[qIndex].parts[partIdx].options[optIdx] = e.target.value;
                             setQuestions(updated);
                           }}
-                          placeholder={`الخيار ${optIdx + 1}`}
+                          placeholder={الخيار ${optIdx + 1}}
                           className="bg-slate-600 border-slate-500 text-white"
                         />
                         <Button
@@ -410,7 +364,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                     {q.question_type === 'single' ? (
                       <input
                         type="radio"
-                        name={`correct-${qIndex}`}
+                        name={correct-${qIndex}}
                         checked={q.correct_answers[0] === oIndex}
                         onChange={() => handleCorrectAnswerChange(qIndex, oIndex)}
                       />
