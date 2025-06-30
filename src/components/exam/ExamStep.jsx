@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight, ArrowLeft, CheckCircle, Check, RotateCcw, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 
 const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -43,79 +40,90 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     }
   };
 
-  const handleAnswer = (value) => {
-    const updatedAnswers = [...answers];
-    updatedAnswers[currentQuestionIndex] = value;
-    setAnswers(updatedAnswers);
+  // ✅ للأحادية والمتعددة
+  const handleAnswer = (optionIndex) => {
+    const updated = { ...answers };
+    const qid = currentQuestion.id;
+
+    if (currentQuestion.question_type === 'single') {
+      updated[qid] = [optionIndex];
+    } else {
+      const prev = updated[qid] || [];
+      if (prev.includes(optionIndex)) {
+        updated[qid] = prev.filter(i => i !== optionIndex);
+      } else {
+        updated[qid] = [...prev, optionIndex];
+      }
+    }
+
+    setAnswers(updated);
   };
 
-  const handleCompoundAnswer = (partIndex, value) => {
-    const prev = answers[currentQuestionIndex] || {};
-    const updatedAnswers = [...answers];
-    updatedAnswers[currentQuestionIndex] = {
-      ...prev,
-      [partIndex]: value,
-    };
-    setAnswers(updatedAnswers);
+  // ✅ للسؤال المركب
+  const handleCompoundAnswer = (partIndex, selectedIndex) => {
+    const updated = { ...answers };
+    const qid = currentQuestion.id;
+    const prev = updated[qid] || [];
+
+    const newParts = [...prev];
+    newParts[partIndex] = selectedIndex;
+    updated[qid] = newParts;
+
+    setAnswers(updated);
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 text-white bg-slate-800 rounded-lg shadow max-w-3xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
-        <h2 className="text-lg font-bold">السؤال {currentQuestionIndex + 1}</h2>
-        <span className="text-sm text-gray-600">
-          الوقت المتبقي: {formatTime(questionTimeLeft)}
-        </span>
+        <h2 className="text-lg font-bold">السؤال {currentQuestionIndex + 1} من {exam.questions.length}</h2>
+        <span className="text-sm text-yellow-400">الوقت المتبقي: {formatTime(questionTimeLeft)}</span>
       </div>
 
-      {currentQuestion.question_type === 'single' && (
-        <div>
-          <h3 className="mb-4 font-semibold">{currentQuestion.question}</h3>
-          <div className="flex flex-col gap-3">
-            {currentQuestion.options.map((opt, idx) => (
-              <label key={idx} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name={`q-${currentQuestionIndex}`}
-                  value={opt}
-                  checked={answers[currentQuestionIndex] === opt}
-                  onChange={() => handleAnswer(opt)}
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
+      <div>
+        <h3 className="mb-4 text-xl font-semibold">{currentQuestion.question}</h3>
 
-      {/* ✅ سؤال مركب */}
-      {currentQuestion.question_type === 'compound' && (
-        <div>
-          <h3 className="mb-4 font-semibold">{currentQuestion.question}</h3>
-          {currentQuestion.parts?.map((part, idx) => (
-            <div key={idx} className="mb-4">
-              <p className="mb-2 font-medium">{part.text}</p>
-              <div className="flex gap-4">
-                {part.options.map((opt, oidx) => (
-                  <label key={oidx} className="flex items-center gap-2">
+        {/* السؤال المركب */}
+        {currentQuestion.question_type === 'compound' ? (
+          <div className="space-y-6">
+            {currentQuestion.parts?.map((part, partIndex) => (
+              <div key={partIndex} className="bg-slate-700 p-4 rounded space-y-2 border border-slate-600">
+                <p className="font-medium">شطر {partIndex + 1}: {part.text}</p>
+                {part.options.map((opt, optIndex) => (
+                  <label key={optIndex} className="block">
                     <input
                       type="radio"
-                      name={`compound-${currentQuestionIndex}-${idx}`}
-                      value={opt}
-                      checked={answers[currentQuestionIndex]?.[idx] === opt}
-                      onChange={() => handleCompoundAnswer(idx, opt)}
+                      name={`compound-${currentQuestionIndex}-${partIndex}`}
+                      checked={answers[currentQuestion.id]?.[partIndex] === optIndex}
+                      onChange={() => handleCompoundAnswer(partIndex, optIndex)}
+                      className="mr-2"
                     />
                     {opt}
                   </label>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : (
+          // السؤال العادي (إجابة واحدة أو متعددة)
+          <div className="space-y-3">
+            {currentQuestion.options.map((opt, optIndex) => (
+              <label key={optIndex} className="block">
+                <input
+                  type={currentQuestion.question_type === 'single' ? 'radio' : 'checkbox'}
+                  name={`q-${currentQuestion.id}`}
+                  checked={answers[currentQuestion.id]?.includes(optIndex)}
+                  onChange={() => handleAnswer(optIndex)}
+                  className="mr-2"
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="mt-6 flex justify-end">
-        <Button onClick={handleNext}>التالي</Button>
+        <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white">التالي</Button>
       </div>
     </div>
   );
