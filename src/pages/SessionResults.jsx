@@ -8,33 +8,51 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Eye } from 'lucide-react';
+import { Eye, Check, X, Info } from 'lucide-react';
+
+const isCorrect = (userAnswers, correctAnswers) => {
+  if (!userAnswers || !correctAnswers) return false;
+  if (userAnswers.length !== correctAnswers.length) return false;
+  const sortedUser = [...userAnswers].sort();
+  const sortedCorrect = [...correctAnswers].sort();
+  return sortedUser.every((val, i) => val === sortedCorrect[i]);
+};
 
 const SessionResults = ({ sessionId }) => {
   const [results, setResults] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [selectedResult, setSelectedResult] = useState(null);
+  const [test, setTest] = useState(null);
+  const [questionsMap, setQuestionsMap] = useState(new Map());
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: resultData } = await supabase
-        .from('test_results')
+      const { data: testData } = await supabase
+        .from('tests')
         .select('*')
-        .eq('test_id', sessionId);
+        .eq('id', sessionId)
+        .single();
+      setTest(testData);
 
-      const { data: questionData } = await supabase
+      const { data: questions } = await supabase
         .from('questions')
         .select('*')
         .eq('test_id', sessionId);
 
-      setResults(resultData || []);
-      setQuestions(questionData || []);
+      const map = new Map();
+      questions.forEach(q => map.set(q.id, q));
+      setQuestionsMap(map);
+
+      const { data: res } = await supabase
+        .from('test_results')
+        .select('*')
+        .eq('test_id', sessionId);
+
+      setResults(res || []);
     };
 
     fetchData();
   }, [sessionId]);
 
-  const getQuestionById = (id) => questions.find((q) => q.id === id);
+  if (!test) return <p className="text-white p-4">جاري التحميل...</p>;
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -47,7 +65,7 @@ const SessionResults = ({ sessionId }) => {
             <div key={result.id} className="bg-slate-800 p-4 rounded-lg text-white shadow border border-slate-600">
               <div className="flex justify-between items-center">
                 <div>
-                  <p><strong>اسم:</strong> {result.name || result.email}</p>
+                  <p><strong>الاسم:</strong> {result.name || result.email}</p>
                   <p><strong>النتيجة:</strong> {result.score}/{result.total_questions}</p>
                   <p><strong>المدة:</strong> {Math.floor(result.time_spent / 60)} دقيقة</p>
                 </div>
@@ -63,64 +81,114 @@ const SessionResults = ({ sessionId }) => {
                       <DialogTitle className="text-white">مراجعة الإجابات</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-6 mt-4">
-                      {questions.map((question, qIdx) => {
-                        const userAnswer = result.answers?.[question.id] ?? [];
+                      {test.questions.map((q, i) => {
+                        const question = questionsMap.get(q.id);
+                        if (!question) return null;
+                        const userAnswers = result.answers[q.id] || [];
                         const isCompound = question.question_type === 'compound';
-                        const compoundParts = (() => {
-                          if (isCompound) {
-                            if (Array.isArray(question.parts)) return question.parts;
+
+                        let parts = [];
+                        if (isCompound) {
+                          if (Array.isArray(question.parts)) {
+                            parts = question.parts;
+                          } else if (typeof question.parts === 'string') {
                             try {
-                              return JSON.parse(question.parts);
+                              parts = JSON.parse(question.parts);
                             } catch {
-                              return [];
+                              parts = [];
                             }
                           }
-                          return [];
-                        })();
+                        }
+
+                        const correct = isCorrect(userAnswers, question.correct_answers);
 
                         return (
-                          <div key={question.id} className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                            <h3 className="text-white font-bold mb-2">سؤال {qIdx + 1}:</h3>
-                            <p className="text-yellow-300 mb-4">{question.question_text}</p>
+                          <div
+                            key={q.id}
+                            className={`p-4 rounded-lg border-2 mb-4 ${
+                              correct ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'
+                            }`}
+                          >
+                            <p className="font-semibold mb-2">{i + 1}. {question.question_text}</p>
 
-                            {isCompound ? (
-                              compoundParts.map((part, partIdx) => (
-                                <div key={partIdx} className="mb-4 bg-slate-700 p-3 rounded">
-                                  <p className="text-white mb-2 font-medium">شطر {partIdx + 1}: {part.text}</p>
-                                  <div className="space-y-2">
-                                    {part.options.map((option, optIdx) => {
-                                      const isCorrect = part.correct_answer === optIdx;
-                                      const isSelected = userAnswer[partIdx] === optIdx;
-                                      const color = isCorrect
-                                        ? 'bg-green-500/20 border-green-400 text-green-300'
-                                        : isSelected
-                                        ? 'bg-red-500/20 border-red-400 text-red-300'
-                                        : 'bg-slate-800 border-slate-600 text-white';
-                                      return (
-                                        <div key={optIdx} className={`p-2 rounded border ${color}`}>
-                                          {option}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="space-y-2">
-                                {(question.options || []).map((option, optIdx) => {
-                                  const isCorrect = (question.correct_answers || []).includes(optIdx);
-                                  const isSelected = userAnswer.includes(optIdx);
-                                  const color = isCorrect
-                                    ? 'bg-green-500/20 border-green-400 text-green-300'
-                                    : isSelected
-                                    ? 'bg-red-500/20 border-red-400 text-red-300'
-                                    : 'bg-slate-800 border-slate-600 text-white';
+                            {isCompound && parts.length > 0 ? (
+                              <div className="space-y-4">
+                                {parts.map((part, partIdx) => {
+                                  const selected = userAnswers[partIdx];
+                                  const isPartCorrect = selected === part.correct_answer;
                                   return (
-                                    <div key={optIdx} className={`p-2 rounded border ${color}`}>
-                                      {option}
+                                    <div key={partIdx}>
+                                      <p className="text-yellow-400 font-medium mb-1">
+                                        شطر {partIdx + 1}: {part.text}
+                                      </p>
+                                      <div className="space-y-1">
+                                        {part.options.map((opt, oIndex) => {
+                                          const isUserAnswer = selected === oIndex;
+                                          const isCorrectAnswer = part.correct_answer === oIndex;
+                                          return (
+                                            <div
+                                              key={oIndex}
+                                              className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
+                                                isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''
+                                              } ${isCorrectAnswer ? 'bg-green-500/20' : ''}`}
+                                            >
+                                              <span className={`${isCorrectAnswer ? 'text-green-300 font-semibold' : ''}`}>{opt}</span>
+                                              {isCorrectAnswer ? (
+                                                <Check className="w-5 h-5 text-green-400" />
+                                              ) : (
+                                                <div className="w-5 h-5" />
+                                              )}
+                                              {isUserAnswer && !isCorrectAnswer && (
+                                                <X className="w-5 h-5 text-red-400" />
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                      <p
+                                        className={`mt-2 text-sm font-bold ${
+                                          isPartCorrect ? 'text-green-400' : 'text-red-400'
+                                        }`}
+                                      >
+                                        {isPartCorrect ? '✅ شطر صحيح' : '❌ شطر خاطئ'}
+                                      </p>
                                     </div>
                                   );
                                 })}
+                              </div>
+                            ) : (
+                              <div className="space-y-2 mb-4">
+                                {(question.options || []).map((opt, oIndex) => {
+                                  const isUserAnswer = userAnswers.includes(oIndex);
+                                  const isCorrectAnswer = question.correct_answers.includes(oIndex);
+                                  return (
+                                    <div
+                                      key={oIndex}
+                                      className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
+                                        isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''
+                                      } ${isCorrectAnswer ? 'bg-green-500/20' : ''}`}
+                                    >
+                                      <span className={`${isCorrectAnswer ? 'text-green-300 font-semibold' : ''}`}>{opt}</span>
+                                      {isCorrectAnswer ? (
+                                        <Check className="w-5 h-5 text-green-400" />
+                                      ) : (
+                                        <div className="w-5 h-5" />
+                                      )}
+                                      {isUserAnswer && !isCorrectAnswer && (
+                                        <X className="w-5 h-5 text-red-400" />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {question.explanation && (
+                              <div className="mt-4 pt-4 border-t border-slate-600">
+                                <p className="font-bold text-yellow-300 flex items-center gap-2 mb-2">
+                                  <Info size={16} /> شرح الإجابة:
+                                </p>
+                                <p className="text-slate-300 whitespace-pre-wrap">{question.explanation}</p>
                               </div>
                             )}
                           </div>
