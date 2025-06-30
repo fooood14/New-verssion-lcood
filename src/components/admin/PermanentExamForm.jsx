@@ -119,6 +119,68 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
     }
     setQuestions(updated);
   };
+  const handleSubmit = async () => {
+  setIsSubmitting(true);
+
+  const { data: testData, error: testError } = await supabase
+    .from('tests')
+    .insert([{
+      title: examTitle,
+      duration: examDuration,
+      user_id: userId,
+      is_permanent: true,
+      image_url: examImageUrl
+    }])
+    .select()
+    .single();
+
+  if (testError) {
+    toast({ title: "خطأ", description: testError.message, variant: "destructive" });
+    setIsSubmitting(false);
+    return;
+  }
+
+  const questionsToInsert = questions.map(q => {
+    const base = {
+      test_id: testData.id,
+      question_text: q.question,
+      question_type: q.question_type,
+      video_url: q.video_url,
+      time_limit_seconds: q.time_limit_seconds,
+      explanation: q.explanation,
+      explanation_video_url: q.explanation_video_url
+    };
+
+    if (q.question_type === "compound") {
+      base.options = [];
+      base.correct_answers = [];
+      base.parts = q.parts.map(p => ({
+        text: p.text,
+        options: p.options,
+        correct_answer: p.correct_answer
+      }));
+    } else {
+      base.options = q.options;
+      base.correct_answers = q.correct_answers;
+    }
+
+    return base;
+  });
+
+  const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
+
+  if (questionsError) {
+    await supabase.from('tests').delete().eq('id', testData.id);
+    toast({ title: "خطأ", description: `فشل في حفظ الأسئلة: ${questionsError.message}`, variant: "destructive" });
+    setIsSubmitting(false);
+    return;
+  }
+
+  toast({ title: "✔", description: "تم حفظ الاختبار بنجاح" });
+  onExamCreated();
+  setIsSubmitting(false);
+};
+
   return (
     <div className="space-y-6">
       <div className="space-y-4 bg-slate-800 p-4 rounded">
