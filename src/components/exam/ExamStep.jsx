@@ -1,4 +1,4 @@
-// ... الاستيرادات بدون تغيير
+// ... نفس الاستيرادات بدون تغيير
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, ArrowLeft, CheckCircle, Check, RotateCcw, Clock } from 'lucide-react';
@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
-  const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion.time_limit_seconds || 30);
+  const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -47,9 +47,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
       const newAnswers = { ...prev };
 
       if (question.question_type === 'compound') {
-        const current = newAnswers[questionId] || [];
+        const current = Array.isArray(newAnswers[questionId]) ? [...newAnswers[questionId]] : [];
         current[partIndex] = answerIndex;
-        newAnswers[questionId] = [...current];
+        newAnswers[questionId] = current;
       } else if (question.question_type === 'single') {
         newAnswers[questionId] = [answerIndex];
       } else {
@@ -86,7 +86,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     }
   };
 
-  const currentAnswers = answers[currentQuestion.id] || [];
+  const currentAnswers = Array.isArray(answers[currentQuestion.id]) ? answers[currentQuestion.id] : [];
 
   return (
     <motion.div
@@ -137,10 +137,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
           )}
         </div>
 
-        {/* الأسئلة المركبة */}
         {currentQuestion.question_type === 'compound' ? (
           <div className="space-y-6">
-            {currentQuestion.parts.map((part, partIdx) => (
+            {(currentQuestion.parts || []).map((part, partIdx) => (
               <div key={partIdx} className="p-4 bg-slate-700/50 border border-slate-600 rounded-xl">
                 <p className="text-white font-medium mb-3">شطر {partIdx + 1}: {part.text}</p>
                 <div className="space-y-3">
@@ -157,7 +156,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
                         <div className="flex items-center justify-end gap-3">
                           <span className="text-lg">{option}</span>
                           <div className={`w-4 h-4 rounded-full border-2 ${
-                            currentAnswers[partIdx] === index ? 'border-yellow-500 bg-yellow-500' : 'border-slate-500'
+                            currentAnswers[partIdx] === index
+                              ? 'border-yellow-500 bg-yellow-500'
+                              : 'border-slate-500'
                           }`} />
                         </div>
                       </button>
@@ -168,7 +169,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
             ))}
           </div>
         ) : (
-          // الأسئلة العادية
           <div className="space-y-4">
             {currentQuestion.options.map((option, index) => (
               <motion.div key={index} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
