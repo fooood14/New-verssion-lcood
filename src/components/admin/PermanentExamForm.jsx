@@ -63,23 +63,16 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
     }]);
   };
 
-  const removeQuestion = (index) => {
-    if (questions.length > 1) {
-      setQuestions(questions.filter((_, i) => i !== index));
-    } else {
-      toast({ title: "تنبيه", description: "يجب أن يحتوي الاختبار على سؤال واحد على الأقل." });
-    }
-  };
-
   const updateQuestionField = (index, field, value) => {
     const updated = [...questions];
     updated[index][field] = value;
 
     if (field === 'question_type') {
       updated[index].correct_answers = [];
+
       if (value === 'compound') {
         updated[index].options = [];
-        updated[index].parts = [{ text: '', options: ['نعم', 'لا'] }];
+        updated[index].parts = [{ text: '', options: ['نعم', 'لا'], correct_answer: 0 }];
       } else {
         updated[index].options = ['', ''];
         updated[index].parts = [];
@@ -88,7 +81,6 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
 
     setQuestions(updated);
   };
-
   const addOption = (qIndex) => {
     const updated = [...questions];
     updated[qIndex].options.push('');
@@ -115,14 +107,67 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
   const handleCorrectAnswerChange = (qIndex, oIndex) => {
     const updated = [...questions];
     const question = updated[qIndex];
-    if (question.question_type === 'single') {
-      question.correct_answers = [oIndex];
-    } else {
+    if (question.question_type === 'single') question.correct_answers = [oIndex];
+    else {
       const currentIndex = question.correct_answers.indexOf(oIndex);
       if (currentIndex === -1) question.correct_answers.push(oIndex);
       else question.correct_answers.splice(currentIndex, 1);
     }
     setQuestions(updated);
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+
+    const { data: testData, error: testError } = await supabase
+      .from('tests')
+      .insert([{ title: examTitle, duration: examDuration, user_id: userId, is_permanent: true, image_url: examImageUrl }])
+      .select().single();
+
+    if (testError) {
+      toast({ title: "خطأ", description: testError.message, variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const questionsToInsert = questions.map(q => {
+      const base = {
+        test_id: testData.id,
+        question_text: q.question,
+        question_type: q.question_type,
+        video_url: q.video_url,
+        time_limit_seconds: q.time_limit_seconds,
+        explanation: q.explanation,
+        explanation_video_url: q.explanation_video_url
+      };
+
+      if (q.question_type === "compound") {
+        base.options = [];
+        base.correct_answers = [];
+        base.parts = q.parts.map(p => ({
+          text: p.text,
+          options: p.options,
+          correct_answer: p.correct_answer
+        }));
+      } else {
+        base.options = q.options;
+        base.correct_answers = q.correct_answers;
+      }
+
+      return base;
+    });
+
+    const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
+    if (questionsError) {
+      await supabase.from('tests').delete().eq('id', testData.id);
+      toast({ title: "خطأ", description: `فشل في حفظ الأسئلة: ${questionsError.message}`, variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+
+    toast({ title: "تم بنجاح!", description: "تم حفظ الاختبار بنجاح." });
+    onExamCreated();
+    setIsSubmitting(false);
   };
   return (
     <div className="space-y-6">
@@ -139,7 +184,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                 </TabsList>
               </Tabs>
               {questions.length > 1 && (
-                <Button onClick={() => removeQuestion(qIndex)} variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
+                <Button onClick={() => setQuestions(questions.filter((_, i) => i !== qIndex))} variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
                   <Trash2 className="w-4 h-4" />
                 </Button>
               )}
@@ -153,7 +198,71 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
             className="bg-slate-600 border-slate-500 text-white mb-4"
           />
 
-          {q.question_type !== 'compound' ? (
+          {/* سؤال مركب */}
+          {q.question_type === 'compound' && (
+            <div className="space-y-4 mb-4">
+              {q.parts?.map((part, partIdx) => (
+                <div key={partIdx} className="bg-slate-700 p-4 rounded border border-slate-600 space-y-2">
+                  <Label className="text-white">شطر {partIdx + 1}</Label>
+                  <Input
+                    className="bg-slate-600 border-slate-500 text-white"
+                    value={part.text}
+                    placeholder="نص الشطر"
+                    onChange={(e) => {
+                      const updated = [...questions];
+                      updated[qIndex].parts[partIdx].text = e.target.value;
+                      setQuestions(updated);
+                    }}
+                  />
+                  <Input
+                    className="bg-slate-600 border-slate-500 text-white"
+                    value={part.options.join(', ')}
+                    placeholder="مثلاً: نعم, لا"
+                    onChange={(e) => {
+                      const updated = [...questions];
+                      updated[qIndex].parts[partIdx].options = e.target.value.split(',').map(x => x.trim());
+                      setQuestions(updated);
+                    }}
+                  />
+                  <div className="text-white space-y-1">
+                    <p className="text-sm">الإجابة الصحيحة:</p>
+                    <div className="flex gap-4">
+                      {part.options.map((opt, optIdx) => (
+                        <label key={optIdx} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name={`correct-answer-${qIndex}-${partIdx}`}
+                            checked={part.correct_answer === optIdx}
+                            onChange={() => {
+                              const updated = [...questions];
+                              updated[qIndex].parts[partIdx].correct_answer = optIdx;
+                              setQuestions(updated);
+                            }}
+                          />
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <Button
+                onClick={() => {
+                  const updated = [...questions];
+                  updated[qIndex].parts.push({ text: '', options: ['نعم', 'لا'], correct_answer: 0 });
+                  setQuestions(updated);
+                }}
+                variant="outline"
+                size="sm"
+                className="text-blue-400 border-blue-500 hover:bg-blue-500/20"
+              >
+                <Plus className="w-4 h-4 ml-2" /> إضافة شطر
+              </Button>
+            </div>
+          )}
+
+          {/* الأسئلة العادية */}
+          {q.question_type !== 'compound' && (
             <div className="space-y-3 mb-4">
               {q.options.map((opt, oIndex) => (
                 <div key={oIndex} className="flex items-center gap-2">
@@ -168,115 +277,14 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
               ))}
               <Button onClick={() => addOption(qIndex)}>إضافة خيار</Button>
             </div>
-          ) : (
-            <div className="space-y-4 mb-4">
-              {q.parts?.map((part, partIdx) => (
-                <div key={partIdx} className="bg-slate-800 p-3 rounded border border-slate-600">
-                  <Label className="text-white mb-1 block">شطر {partIdx + 1}</Label>
-                  <Input
-                    className="mb-2 bg-slate-600 border-slate-500 text-white"
-                    value={part.text}
-                    placeholder="نص الشطر"
-                    onChange={(e) => {
-                      const newQuestions = [...questions];
-                      newQuestions[qIndex].parts[partIdx].text = e.target.value;
-                      setQuestions(newQuestions);
-                    }}
-                  />
-                  <Input
-                    className="bg-slate-600 border-slate-500 text-white"
-                    value={part.options.join(', ')}
-                    placeholder="مثلاً: نعم, لا"
-                    onChange={(e) => {
-                      const newQuestions = [...questions];
-                      newQuestions[qIndex].parts[partIdx].options = e.target.value.split(',').map(x => x.trim());
-                      setQuestions(newQuestions);
-                    }}
-                  />
-                </div>
-              ))}
-              <Button
-                onClick={() => {
-                  const newQuestions = [...questions];
-                  newQuestions[qIndex].parts.push({ text: '', options: ['نعم', 'لا'] });
-                  setQuestions(newQuestions);
-                }}
-              >
-                + إضافة شطر
-              </Button>
-            </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <Input
-                type="number"
-                value={q.time_limit_seconds}
-                onChange={(e) => updateQuestionField(qIndex, 'time_limit_seconds', parseInt(e.target.value) || 0)}
-                placeholder="زمن السؤال (ثواني)"
-                className="bg-slate-600 border-slate-500 text-white"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Video className="w-4 h-4 text-slate-400" />
-              <Input
-                value={q.video_url}
-                onChange={(e) => updateQuestionField(qIndex, 'video_url', e.target.value)}
-                placeholder="رابط فيديو السؤال (اختياري)"
-                className="bg-slate-600 border-slate-500 text-white"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-slate-600 space-y-4">
-            <div>
-              <Label className="text-white mb-2 flex items-center gap-2">
-                <Info className="w-4 h-4" />
-                شرح الإجابة الصحيحة
-              </Label>
-              <Textarea
-                value={q.explanation}
-                onChange={(e) => updateQuestionField(qIndex, 'explanation', e.target.value)}
-                placeholder="اكتب شرحاً يظهر للمستخدم بعد الاختبار"
-                className="bg-slate-600 border-slate-500 text-white"
-              />
-            </div>
-            <div>
-              <Label className="text-white mb-2 flex items-center gap-2">
-                <Video className="w-4 h-4" />
-                رابط فيديو الشرح
-              </Label>
-              <Input
-                value={q.explanation_video_url}
-                onChange={(e) => updateQuestionField(qIndex, 'explanation_video_url', e.target.value)}
-                placeholder="رابط فيديو إضافي للشرح"
-                className="bg-slate-600 border-slate-500 text-white"
-              />
-            </div>
-          </div>
         </motion.div>
       ))}
 
-      <Button onClick={addQuestion} className="mt-4">+ سؤال جديد</Button>
-
       <div className="flex gap-4 mt-8">
-        <Button
-          onClick={() => {
-            // مثال فقط: ضيف هنا منطق الحفظ حسب مشروعك
-            console.log(questions);
-            toast({ title: "✔", description: "تم التحضير للحفظ (أضف منطقي هنا)" });
-          }}
-          className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 disabled:opacity-70"
-        >
-          حفظ الاختبار
-        </Button>
-        <Button
-          onClick={onCancel}
-          variant="outline"
-          className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-70"
-        >
-          إلغاء
-        </Button>
+        <Button onClick={addQuestion} className="bg-green-600 hover:bg-green-700 text-white">+ سؤال جديد</Button>
+        <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700 text-white">حفظ</Button>
+        <Button onClick={onCancel} className="bg-gray-600 hover:bg-gray-700 text-white">إلغاء</Button>
       </div>
     </div>
   );
