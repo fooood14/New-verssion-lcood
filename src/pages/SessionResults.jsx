@@ -85,80 +85,67 @@ const SessionResults = ({ sessionId }) => {
                         const question = questionsMap.get(q.id);
                         if (!question) return null;
                         const userAnswers = result.answers[q.id] || [];
+                        const correct = isCorrect(userAnswers, question.correct_answers);
                         const isCompound = question.question_type === 'compound';
 
                         let parts = [];
                         if (isCompound) {
-                          if (Array.isArray(question.parts)) {
-                            parts = question.parts;
-                          } else if (typeof question.parts === 'string') {
-                            try {
-                              parts = JSON.parse(question.parts);
-                            } catch {
-                              parts = [];
-                            }
+                          try {
+                            parts = Array.isArray(question.parts)
+                              ? question.parts
+                              : JSON.parse(question.parts || '[]');
+                          } catch {
+                            parts = [];
                           }
                         }
-
-                        const correct = isCorrect(userAnswers, question.correct_answers);
 
                         return (
                           <div
                             key={q.id}
-                            className={`p-4 rounded-lg border-2 mb-4 ${
-                              correct ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'
+                            className={`p-4 rounded-lg border-2 ${
+                              correct
+                                ? 'border-green-500/50 bg-green-500/10'
+                                : 'border-red-500/50 bg-red-500/10'
                             }`}
                           >
                             <p className="font-semibold mb-2">{i + 1}. {question.question_text}</p>
 
-                            {isCompound && parts.length > 0 ? (
-                              <div className="space-y-4">
+                            {isCompound ? (
+                              <div className="space-y-4 mb-4">
                                 {parts.map((part, partIdx) => {
                                   const selected = userAnswers[partIdx];
-                                  const isPartCorrect = selected === part.correct_answer;
                                   return (
                                     <div key={partIdx}>
-                                      <p className="text-yellow-400 font-medium mb-1">
-                                        شطر {partIdx + 1}: {part.text}
-                                      </p>
-                                      <div className="space-y-1">
-                                        {part.options.map((opt, oIndex) => {
-                                          const isUserAnswer = selected === oIndex;
-                                          const isCorrectAnswer = part.correct_answer === oIndex;
-                                          return (
-                                            <div
-                                              key={oIndex}
-                                              className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
-                                                isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''
-                                              } ${isCorrectAnswer ? 'bg-green-500/20' : ''}`}
-                                            >
-                                              <span className={`${isCorrectAnswer ? 'text-green-300 font-semibold' : ''}`}>{opt}</span>
-                                              {isCorrectAnswer ? (
-                                                <Check className="w-5 h-5 text-green-400" />
-                                              ) : (
-                                                <div className="w-5 h-5" />
-                                              )}
-                                              {isUserAnswer && !isCorrectAnswer && (
-                                                <X className="w-5 h-5 text-red-400" />
-                                              )}
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                      <p
-                                        className={`mt-2 text-sm font-bold ${
-                                          isPartCorrect ? 'text-green-400' : 'text-red-400'
-                                        }`}
-                                      >
-                                        {isPartCorrect ? '✅ شطر صحيح' : '❌ شطر خاطئ'}
-                                      </p>
+                                      <p className="text-yellow-400 mb-1">شطر {partIdx + 1}: {part.text}</p>
+                                      {part.options.map((opt, oIndex) => {
+                                        const isCorrectAnswer = part.correct_answer === oIndex;
+                                        const isUserAnswer = selected === oIndex;
+                                        return (
+                                          <div
+                                            key={oIndex}
+                                            className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
+                                              isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''
+                                            } ${isCorrectAnswer ? 'bg-green-500/20' : ''}`}
+                                          >
+                                            <span className={`${isCorrectAnswer ? 'text-green-300 font-semibold' : ''}`}>{opt}</span>
+                                            {isCorrectAnswer ? (
+                                              <Check className="w-5 h-5 text-green-400" />
+                                            ) : (
+                                              <div className="w-5 h-5" />
+                                            )}
+                                            {isUserAnswer && !isCorrectAnswer && (
+                                              <X className="w-5 h-5 text-red-400" />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   );
                                 })}
                               </div>
                             ) : (
                               <div className="space-y-2 mb-4">
-                                {(question.options || []).map((opt, oIndex) => {
+                                {question.options.map((opt, oIndex) => {
                                   const isUserAnswer = userAnswers.includes(oIndex);
                                   const isCorrectAnswer = question.correct_answers.includes(oIndex);
                                   return (
