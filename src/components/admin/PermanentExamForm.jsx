@@ -172,7 +172,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
 
     if (questionsError) {
       await supabase.from('tests').delete().eq('id', testData.id);
-      toast({ title: "خطأ", description: "فشل في حفظ الأسئلة: ${questionsError.message}", variant: "destructive" });
+      toast({ title: "خطأ", description: `فشل في حفظ الأسئلة: ${questionsError.message}`, variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
@@ -294,7 +294,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                       <div key={optIdx} className="flex items-center gap-2">
                         <input
                           type="radio"
-                          name={compound-correct-${qIndex}-${partIdx}}
+                          name={`compound-correct-${qIndex}-${partIdx}`}
                           checked={part.correct_answer === optIdx}
                           onChange={() => {
                             const updated = [...questions];
@@ -310,7 +310,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                             updated[qIndex].parts[partIdx].options[optIdx] = e.target.value;
                             setQuestions(updated);
                           }}
-                          placeholder={الخيار ${optIdx + 1}}
+                          placeholder={`الخيار ${optIdx + 1}`}
                           className="bg-slate-600 border-slate-500 text-white"
                         />
                         <Button
@@ -364,7 +364,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
                     {q.question_type === 'single' ? (
                       <input
                         type="radio"
-                        name={correct-${qIndex}}
+                        name={`correct-${qIndex}`}
                         checked={q.correct_answers[0] === oIndex}
                         onChange={() => handleCorrectAnswerChange(qIndex, oIndex)}
                       />
