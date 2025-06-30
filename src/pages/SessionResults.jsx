@@ -1,135 +1,138 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 const SessionResults = ({ sessionId }) => {
   const [results, setResults] = useState([]);
   const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedResult, setSelectedResult] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-
-      const { data: resultsData } = await supabase
+      const { data: resultData } = await supabase
         .from('test_results')
-        .select('*, participant:session_participants(name, email, phone_number)')
-        .eq('test_id', sessionId)
-        .order('submitted_at', { ascending: false });
-
-      const { data: questionsData } = await supabase
-        .from('questions')
-        .select('id, question_text, question_type, correct_answers, parts')
+        .select('*')
         .eq('test_id', sessionId);
 
-      setResults(resultsData || []);
-      setQuestions(questionsData || []);
-      setLoading(false);
+      const { data: questionData } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('test_id', sessionId);
+
+      setResults(resultData || []);
+      setQuestions(questionData || []);
     };
 
-    if (sessionId) fetchData();
+    fetchData();
   }, [sessionId]);
 
-  const getQuestionById = (id) => questions.find(q => q.id === id);
-
-  const isCompoundCorrect = (userAnswer, correctParts) => {
-    if (!userAnswer || !correctParts) return false;
-    return correctParts.every((p, idx) => userAnswer[idx] === p.options[p.correct_answer]);
-  };
-
-  const isStandardCorrect = (userAnswer, correctAnswer) => {
-    if (!userAnswer || !correctAnswer) return false;
-    return Array.isArray(userAnswer)
-      ? [...userAnswer].sort().join(',') === [...correctAnswer].sort().join(',')
-      : userAnswer === correctAnswer[0];
-  };
-
-  const downloadCSV = () => {
-    const csvHeader = `الاسم,الهاتف,البريد,النتيجة,النسبة,المدة,عدد الأسئلة\n`;
-    const rows = results.map(r =>
-      `${r.participant?.name || ''},${r.participant?.phone_number || ''},${r.participant?.email || ''},${r.score},${r.percentage}%,${r.time_spent}s,${r.total_questions}`
-    );
-    const csvContent = csvHeader + rows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'session_results.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const getQuestionById = (id) => questions.find((q) => q.id === id);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">نتائج الجلسة</h2>
-        <Button onClick={downloadCSV} className="flex items-center gap-2">
-          <Download className="w-4 h-4" /> تحميل CSV
-        </Button>
-      </div>
-
-      {loading ? (
-        <p className="text-white">جاري التحميل...</p>
+    <div className="max-w-4xl mx-auto p-4">
+      <h1 className="text-2xl text-white font-bold mb-6">نتائج الجلسة</h1>
+      {results.length === 0 ? (
+        <p className="text-gray-400">لا توجد نتائج بعد.</p>
       ) : (
-        results.map((result, idx) => (
-          <Card key={result.id} className="bg-slate-700 border border-slate-600 p-4 text-white space-y-4">
-            <div>
-              <h3 className="font-bold text-lg">المشارك {idx + 1}</h3>
-              <p>الاسم: {result.participant?.name || '—'}</p>
-              <p>الهاتف: {result.participant?.phone_number || '—'}</p>
-              <p>البريد: {result.participant?.email || '—'}</p>
-              <p>النتيجة: {result.score}/{result.total_questions}</p>
-              <p>النسبة: {result.percentage}%</p>
-              <p>المدة المستغرقة: {result.time_spent} ثانية</p>
-              <p>تاريخ الإرسال: {new Date(result.submitted_at).toLocaleString()}</p>
+        <div className="space-y-4">
+          {results.map((result) => (
+            <div key={result.id} className="bg-slate-800 p-4 rounded-lg text-white shadow border border-slate-600">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p><strong>اسم:</strong> {result.name || result.email}</p>
+                  <p><strong>النتيجة:</strong> {result.score}/{result.total_questions}</p>
+                  <p><strong>المدة:</strong> {Math.floor(result.time_spent / 60)} دقيقة</p>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="text-blue-400 border-blue-400 hover:bg-blue-500/10">
+                      <Eye className="w-4 h-4 ml-2" />
+                      عرض الإجابات
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700">
+                    <DialogHeader>
+                      <DialogTitle className="text-white">مراجعة الإجابات</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 mt-4">
+                      {questions.map((question, qIdx) => {
+                        const userAnswer = result.answers?.[question.id] ?? [];
+                        const isCompound = question.question_type === 'compound';
+                        const compoundParts = (() => {
+                          if (isCompound) {
+                            if (Array.isArray(question.parts)) return question.parts;
+                            try {
+                              return JSON.parse(question.parts);
+                            } catch {
+                              return [];
+                            }
+                          }
+                          return [];
+                        })();
+
+                        return (
+                          <div key={question.id} className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                            <h3 className="text-white font-bold mb-2">سؤال {qIdx + 1}:</h3>
+                            <p className="text-yellow-300 mb-4">{question.question_text}</p>
+
+                            {isCompound ? (
+                              compoundParts.map((part, partIdx) => (
+                                <div key={partIdx} className="mb-4 bg-slate-700 p-3 rounded">
+                                  <p className="text-white mb-2 font-medium">شطر {partIdx + 1}: {part.text}</p>
+                                  <div className="space-y-2">
+                                    {part.options.map((option, optIdx) => {
+                                      const isCorrect = part.correct_answer === optIdx;
+                                      const isSelected = userAnswer[partIdx] === optIdx;
+                                      const color = isCorrect
+                                        ? 'bg-green-500/20 border-green-400 text-green-300'
+                                        : isSelected
+                                        ? 'bg-red-500/20 border-red-400 text-red-300'
+                                        : 'bg-slate-800 border-slate-600 text-white';
+                                      return (
+                                        <div key={optIdx} className={`p-2 rounded border ${color}`}>
+                                          {option}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="space-y-2">
+                                {(question.options || []).map((option, optIdx) => {
+                                  const isCorrect = (question.correct_answers || []).includes(optIdx);
+                                  const isSelected = userAnswer.includes(optIdx);
+                                  const color = isCorrect
+                                    ? 'bg-green-500/20 border-green-400 text-green-300'
+                                    : isSelected
+                                    ? 'bg-red-500/20 border-red-400 text-red-300'
+                                    : 'bg-slate-800 border-slate-600 text-white';
+                                  return (
+                                    <div key={optIdx} className={`p-2 rounded border ${color}`}>
+                                      {option}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
-
-            <div className="border-t border-slate-500 pt-4 space-y-4">
-              <h4 className="text-yellow-400 font-semibold">تفاصيل الأجوبة:</h4>
-              {Object.entries(result.answers || {}).map(([qid, userAnswer], i) => {
-                const q = getQuestionById(qid);
-                if (!q) return null;
-
-                const isCorrect = q.question_type === 'compound'
-                  ? isCompoundCorrect(userAnswer, q.parts || [])
-                  : isStandardCorrect(userAnswer, q.correct_answers);
-
-                return (
-                  <div key={qid} className="p-4 rounded bg-slate-800 border border-slate-600 space-y-2">
-                    <p className="font-semibold">
-                      سؤال {i + 1}: {q.question_text}
-                      <span className={`ml-3 font-bold ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-                        {isCorrect ? '✔️ صحيح' : '❌ خطأ'}
-                      </span>
-                    </p>
-
-                    {q.question_type === 'compound' ? (
-                      q.parts?.map((part, pIdx) => (
-                        <div key={pIdx} className="ml-4">
-                          <p className="text-sm mb-1">شطر {pIdx + 1}: {part.text}</p>
-                          <ul className="text-sm list-disc ml-4">
-                            <li>الجواب المشارك: <span className="text-blue-300">{userAnswer?.[pIdx] || 'لا شيء'}</span></li>
-                            <li>الجواب الصحيح: <span className="text-green-300">{part.options[part.correct_answer]}</span></li>
-                          </ul>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="ml-4 text-sm">
-                        <p>الجواب المشارك: <span className="text-blue-300">
-                          {Array.isArray(userAnswer) ? userAnswer.join(', ') : userAnswer}
-                        </span></p>
-                        <p>الجواب الصحيح: <span className="text-green-300">{q.correct_answers.join(', ')}</span></p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        ))
+          ))}
+        </div>
       )}
     </div>
   );
