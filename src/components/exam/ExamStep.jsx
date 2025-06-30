@@ -1,4 +1,4 @@
-// ... الاستيرادات كما هي
+// الاستيرادات كما هي
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, ArrowLeft, CheckCircle, Check, RotateCcw, Clock } from 'lucide-react';
@@ -86,6 +86,20 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
 
   const currentAnswers = Array.isArray(answers[currentQuestion.id]) ? answers[currentQuestion.id] : [];
 
+  // ✅ تأكد أن parts مصفوفة حقيقية
+  let parts = [];
+  if (currentQuestion.question_type === 'compound') {
+    if (Array.isArray(currentQuestion.parts)) {
+      parts = currentQuestion.parts;
+    } else if (typeof currentQuestion.parts === 'string') {
+      try {
+        parts = JSON.parse(currentQuestion.parts);
+      } catch {
+        parts = [];
+      }
+    }
+  }
+
   return (
     <motion.div
       key="exam"
@@ -133,9 +147,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
           )}
         </div>
 
-        {currentQuestion.question_type === 'compound' && Array.isArray(currentQuestion.parts) ? (
+        {currentQuestion.question_type === 'compound' && parts.length > 0 ? (
           <div className="space-y-6">
-            {currentQuestion.parts.map((part, partIdx) => (
+            {parts.map((part, partIdx) => (
               <div key={partIdx} className="p-4 bg-slate-700/50 border border-slate-600 rounded-xl">
                 <p className="text-white font-medium mb-3">شطر {partIdx + 1}: {part.text}</p>
                 <div className="space-y-3">
