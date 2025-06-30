@@ -186,7 +186,6 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
       <div className="bg-slate-800 p-6 rounded-lg shadow-lg max-h-[90vh] overflow-y-auto w-full max-w-4xl space-y-6">
 
         {/* معلومات عامة عن الاختبار */}
-        <{/* داخل Card: استبدل هذا السطر فقط */}
 {currentQuestion.question_type === 'compound' ? (
   <div className="space-y-6">
     {currentQuestion.parts?.map((part, partIndex) => (
