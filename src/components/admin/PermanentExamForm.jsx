@@ -72,7 +72,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
 
       if (value === 'compound') {
         updated[index].options = [];
-        updated[index].parts = [{ text: '', options: ['نعم', 'لا'], correct_answer: 0 }];
+        updated[index].parts = [{ text: '', options: ['', ''], correct_answer: 0 }];
       } else {
         updated[index].options = ['', ''];
         updated[index].parts = [];
@@ -107,11 +107,15 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
   const handleCorrectAnswerChange = (qIndex, oIndex) => {
     const updated = [...questions];
     const question = updated[qIndex];
-    if (question.question_type === 'single') question.correct_answers = [oIndex];
-    else {
+    if (question.question_type === 'single') {
+      question.correct_answers = [oIndex];
+    } else {
       const currentIndex = question.correct_answers.indexOf(oIndex);
-      if (currentIndex === -1) question.correct_answers.push(oIndex);
-      else question.correct_answers.splice(currentIndex, 1);
+      if (currentIndex === -1) {
+        question.correct_answers.push(oIndex);
+      } else {
+        question.correct_answers.splice(currentIndex, 1);
+      }
     }
     setQuestions(updated);
   };
@@ -122,7 +126,8 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
     const { data: testData, error: testError } = await supabase
       .from('tests')
       .insert([{ title: examTitle, duration: examDuration, user_id: userId, is_permanent: true, image_url: examImageUrl }])
-      .select().single();
+      .select()
+      .single();
 
     if (testError) {
       toast({ title: "خطأ", description: testError.message, variant: "destructive" });
@@ -198,58 +203,77 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
             className="bg-slate-600 border-slate-500 text-white mb-4"
           />
 
-          {/* سؤال مركب */}
+          {/* السؤال المركب */}
           {q.question_type === 'compound' && (
             <div className="space-y-4 mb-4">
               {q.parts?.map((part, partIdx) => (
-                <div key={partIdx} className="bg-slate-700 p-4 rounded border border-slate-600 space-y-2">
-                  <Label className="text-white">شطر {partIdx + 1}</Label>
+                <div key={partIdx} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 space-y-3">
+                  <Label className="text-white block">شطر {partIdx + 1}</Label>
                   <Input
-                    className="bg-slate-600 border-slate-500 text-white"
                     value={part.text}
-                    placeholder="نص الشطر"
                     onChange={(e) => {
                       const updated = [...questions];
                       updated[qIndex].parts[partIdx].text = e.target.value;
                       setQuestions(updated);
                     }}
-                  />
-                  <Input
+                    placeholder="نص الشطر"
                     className="bg-slate-600 border-slate-500 text-white"
-                    value={part.options.join(', ')}
-                    placeholder="مثلاً: نعم, لا"
-                    onChange={(e) => {
+                  />
+                  {part.options.map((opt, optIdx) => (
+                    <div key={optIdx} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`compound-correct-${qIndex}-${partIdx}`}
+                        checked={part.correct_answer === optIdx}
+                        onChange={() => {
+                          const updated = [...questions];
+                          updated[qIndex].parts[partIdx].correct_answer = optIdx;
+                          setQuestions(updated);
+                        }}
+                        className="form-radio h-5 w-5 text-yellow-500 bg-slate-600 border-slate-500 focus:ring-yellow-400 cursor-pointer"
+                      />
+                      <Input
+                        value={opt}
+                        onChange={(e) => {
+                          const updated = [...questions];
+                          updated[qIndex].parts[partIdx].options[optIdx] = e.target.value;
+                          setQuestions(updated);
+                        }}
+                        placeholder={`الخيار ${optIdx + 1}`}
+                        className="bg-slate-600 border-slate-500 text-white"
+                      />
+                      <Button
+                        onClick={() => {
+                          const updated = [...questions];
+                          updated[qIndex].parts[partIdx].options.splice(optIdx, 1);
+                          setQuestions(updated);
+                        }}
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-400 w-8 h-8"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    onClick={() => {
                       const updated = [...questions];
-                      updated[qIndex].parts[partIdx].options = e.target.value.split(',').map(x => x.trim());
+                      updated[qIndex].parts[partIdx].options.push('');
                       setQuestions(updated);
                     }}
-                  />
-                  <div className="text-white space-y-1">
-                    <p className="text-sm">الإجابة الصحيحة:</p>
-                    <div className="flex gap-4">
-                      {part.options.map((opt, optIdx) => (
-                        <label key={optIdx} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="radio"
-                            name={`correct-answer-${qIndex}-${partIdx}`}
-                            checked={part.correct_answer === optIdx}
-                            onChange={() => {
-                              const updated = [...questions];
-                              updated[qIndex].parts[partIdx].correct_answer = optIdx;
-                              setQuestions(updated);
-                            }}
-                          />
-                          {opt}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+                    variant="outline"
+                    size="sm"
+                    className="text-green-400 border-green-500 hover:bg-green-500/20"
+                  >
+                    <Plus className="w-4 h-4 ml-2" /> إضافة خيار
+                  </Button>
                 </div>
               ))}
               <Button
                 onClick={() => {
                   const updated = [...questions];
-                  updated[qIndex].parts.push({ text: '', options: ['نعم', 'لا'], correct_answer: 0 });
+                  updated[qIndex].parts.push({ text: '', options: ['', ''], correct_answer: 0 });
                   setQuestions(updated);
                 }}
                 variant="outline"
