@@ -172,7 +172,7 @@ const PermanentExamForm = ({ onExamCreated, onCancel, userId, examToEdit }) => {
 
     if (questionsError) {
       await supabase.from('tests').delete().eq('id', testData.id);
-      toast({ title: "خطأ", description: فشل في حفظ الأسئلة: ${questionsError.message}, variant: "destructive" });
+      toast({ title: "خطأ", description: "فشل في حفظ الأسئلة: ${questionsError.message}", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
