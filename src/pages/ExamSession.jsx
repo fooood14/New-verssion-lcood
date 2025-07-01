@@ -79,7 +79,13 @@ const ExamSession = () => {
           video_url: q.video_url || null,
           explanation: q.explanation || '',
           explanation_video_url: q.explanation_video_url || '',
-          parts: q.parts ? JSON.parse(q.parts) : []
+          parts: (() => {
+            try {
+              return q.parts ? JSON.parse(q.parts) : [];
+            } catch {
+              return [];
+            }
+          })()
         })).sort((a, b) => (a.id || '').localeCompare(b.id || ''))
       };
 
