@@ -1,97 +1,140 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Play, Users, ListTodo, Clock } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import { Eye, Users, Clock, Share2, Trash2, Copy, BarChart2, Star, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
-import { toast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
-const ExamCard = ({ exam, onSessionCreated }) => {
-  const navigate = useNavigate();
+const ExamCard = ({ exam, index, onDelete, onCopyLink, onViewResults, isOwner, onStartSession }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [creatingSession, setCreatingSession] = useState(false);
 
-  const handleCreateSession = async (withVideo) => {
-    setCreatingSession(true);
-
-    const { data, error } = await supabase
-      .from('live_sessions')
-      .insert([
-        {
-          test_id: exam.id,
-          with_video: withVideo,
-        },
-      ])
-      .select()
-      .single();
-
-    setCreatingSession(false);
+  const handleStartSession = (withVideo) => {
     setDialogOpen(false);
-
-    if (error || !data) {
-      toast({
-        title: 'خطأ',
-        description: 'فشل في إنشاء الجلسة.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    toast({ title: 'تم إنشاء الجلسة بنجاح' });
-    if (onSessionCreated) onSessionCreated();
-    navigate(`/session/${data.id}`);
+    if (onStartSession) onStartSession(exam, withVideo);
   };
 
   return (
-    <Card className="bg-slate-800/40 border-slate-700 hover:shadow-lg transition-all duration-300">
-      <CardHeader>
-        <CardTitle className="text-white">{exam.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center text-sm text-slate-300 gap-2">
-          <ListTodo className="w-4 h-4" />
-          <span>{exam.questions_count} سؤال</span>
-        </div>
-        <div className="flex items-center text-sm text-slate-300 gap-2">
-          <Users className="w-4 h-4" />
-          <span>{exam.participants_count} مشارك</span>
-        </div>
-        <div className="flex items-center text-sm text-slate-300 gap-2">
-          <Clock className="w-4 h-4" />
-          <span>{exam.duration} دقيقة</span>
+    <motion.div
+      key={exam.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ delay: index * 0.1 }}
+      whileHover={{ y: -5 }}
+    >
+      <Card className={`p-6 bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 backdrop-blur-sm hover:border-yellow-500/50 transition-all duration-300 flex flex-col h-full ${exam.is_permanent ? 'border-yellow-500/30' : ''}`}>
+        {exam.image_url && (
+          <div className="mb-4 rounded-lg overflow-hidden">
+            <img
+              src={exam.image_url}
+              alt={exam.title}
+              className="w-full h-32 object-cover"
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-xl font-bold text-white truncate flex-1 flex items-center gap-2">
+            {exam.is_permanent && <Star className="w-5 h-5 text-yellow-400" />}
+            {exam.title}
+          </h3>
+          <div className="flex gap-2 ml-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onCopyLink(exam)}
+              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/20"
+              disabled={exam.is_permanent}
+            >
+              <Share2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(exam.id)}
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+              disabled={!isOwner || exam.is_permanent}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white">
-              <Play className="w-4 h-4 ml-2" />
-              إنشاء جلسة مباشرة
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-slate-900 border border-slate-700 text-white text-center">
-            <h2 className="text-xl font-bold mb-4">خيارات الجلسة</h2>
-            <p className="mb-6 text-slate-300">هل تريد عرض فيديوهات الأسئلة أثناء الجلسة؟</p>
-            <div className="flex flex-col gap-4">
+        <div className="space-y-3 text-gray-300 flex-grow">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-yellow-400" />
+            <span>{exam.duration} دقيقة</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-blue-400" />
+            <span>{exam.questions?.length || 0} سؤال</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-green-400" />
+            <span>{exam.participantsCount || 0} مشارك</span>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-700">
+          {exam.is_permanent ? (
+            <>
               <Button
-                onClick={() => handleCreateSession(true)}
-                disabled={creatingSession}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setDialogOpen(true)}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
               >
-                ✅ بالفيديو
+                <Play className="w-4 h-4 ml-2" />
+                إنشاء جلسة مباشرة
+              </Button>
+
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">طريقة عرض الجلسة</DialogTitle>
+                  </DialogHeader>
+                  <p className="text-slate-400 text-sm mt-2 mb-4">
+                    هل ترغب في عرض فيديوهات الأسئلة أثناء الجلسة؟
+                  </p>
+                  <DialogFooter className="flex flex-col sm:flex-row justify-end gap-2">
+                    <Button onClick={() => handleStartSession(false)} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                      بدون فيديو
+                    </Button>
+                    <Button onClick={() => handleStartSession(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                      بالفيديو
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => onViewResults(exam.id)}
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+              >
+                <BarChart2 className="w-4 h-4 ml-2" />
+                عرض النتائج
               </Button>
               <Button
-                onClick={() => handleCreateSession(false)}
-                disabled={creatingSession}
-                className="bg-slate-700 hover:bg-slate-600 text-white"
+                onClick={() => onCopyLink(exam)}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
               >
-                🚫 بدون فيديو
+                <Copy className="w-4 h-4 ml-2" />
+                نسخ الرابط
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+          )}
+        </div>
+      </Card>
+    </motion.div>
   );
 };
 
