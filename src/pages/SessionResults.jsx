@@ -107,23 +107,24 @@ const SessionResults = () => {
     if (resultsError) {
       toast({
         title: 'خطأ',
-        description: `فشل في تحميل النتائج: ${resultsError.message}`,
+        description: فشل في تحميل النتائج: ${resultsError.message},
         variant: 'destructive',
       });
     } else {
       setResults(resultsData || []);
     }
+
     if (subscribedChannel) supabase.removeChannel(subscribedChannel);
 
     const channel = supabase
-      .channel(`session_results_channel_for_${testId}`)
+      .channel(session_results_channel_for_${testId})
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'test_results',
-          filter: `test_id=eq.${testId}`,
+          filter: test_id=eq.${testId},
         },
         async (payload) => {
           const { data: participantData } = await supabase
@@ -146,7 +147,7 @@ const SessionResults = () => {
           if (participantData) {
             toast({
               title: 'نتيجة جديدة!',
-              description: `المشارك ${participantData.name} أنهى الاختبار.`,
+              description: المشارك ${participantData.name} أنهى الاختبار.,
             });
           }
         }
@@ -236,7 +237,7 @@ const SessionResults = () => {
           heightLeft -= pageHeight;
         }
 
-        pdf.save(`نتائج-${test.title}.pdf`);
+        pdf.save(نتائج-${test.title}.pdf);
         setIsExporting(false);
         toast({
           title: 'تم التصدير',
@@ -253,8 +254,9 @@ const SessionResults = () => {
         setIsExporting(false);
       });
   };
+
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/session/${testId}`;
+    const link = ${window.location.origin}/session/${testId};
     navigator.clipboard.writeText(link);
     toast({
       title: 'تم النسخ!',
@@ -285,27 +287,6 @@ const SessionResults = () => {
       });
     }
   };
-
-  // ✅ تعديل احتساب النقاط للسؤال المركب
-  const score = test.questions.reduce((total, question) => {
-    const userAnswersForQuestion = (results[0]?.answers?.[question.id]) || [];
-
-    if (question.question_type === 'compound') {
-      let parts = [];
-      try {
-        parts = Array.isArray(question.parts)
-          ? question.parts
-          : JSON.parse(question.parts || '[]');
-      } catch {
-        parts = [];
-      }
-      const allCorrect = parts.every((part, index) => part.correct_answer === userAnswersForQuestion[index]);
-      return total + (allCorrect ? 1 : 0);
-    }
-
-    const singleCorrect = isCorrect(userAnswersForQuestion, question.correct_answers);
-    return total + (singleCorrect ? 1 : 0);
-  }, 0);
   if (loading || !test) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
@@ -398,7 +379,6 @@ const SessionResults = () => {
             </div>
           </CardHeader>
         </Card>
-
         <div id="results-container">
           {results.length === 0 ? (
             <Card className="text-center p-8 bg-slate-800/50 border-slate-700">
@@ -467,23 +447,9 @@ const SessionResults = () => {
                                   if (!question) return null;
 
                                   const userAnswers = result.answers[q.id] || [];
-                                  let correct = false;
-
-                                  if (question.question_type === 'compound') {
-                                    let parts = [];
-                                    try {
-                                      parts = Array.isArray(question.parts)
-                                        ? question.parts
-                                        : JSON.parse(question.parts || '[]');
-                                    } catch {
-                                      parts = [];
-                                    }
-                                    correct = parts.every((part, idx) => part.correct_answer === userAnswers[idx]);
-                                  } else {
-                                    correct = isCorrect(userAnswers, question.correct_answers);
-                                  }
-
+                                  const correct = isCorrect(userAnswers, question.correct_answers);
                                   const isCompound = question.question_type === 'compound';
+
                                   let parts = [];
                                   if (isCompound) {
                                     try {
@@ -498,15 +464,16 @@ const SessionResults = () => {
                                   return (
                                     <div
                                       key={q.id}
-                                      className={`p-4 rounded-lg border-2 ${
+                                      className={p-4 rounded-lg border-2 ${
                                         correct
                                           ? 'border-green-500/50 bg-green-500/10'
                                           : 'border-red-500/50 bg-red-500/10'
-                                      }`}
+                                      }}
                                     >
                                       <p className="font-semibold mb-2">
                                         {i + 1}. {question.question_text}
                                       </p>
+
                                       {isCompound && parts.length > 0 ? (
                                         <div className="space-y-4 mb-4">
                                           {parts.map((part, partIdx) => {
@@ -522,7 +489,7 @@ const SessionResults = () => {
                                                   return (
                                                     <div
                                                       key={oIndex}
-                                                      className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
+                                                      className={flex items-center justify-end gap-3 p-2 rounded text-right ${
                                                         isUserAnswer && !isCorrectAnswer
                                                           ? 'bg-red-500/20'
                                                           : ''
@@ -530,14 +497,14 @@ const SessionResults = () => {
                                                         isCorrectAnswer
                                                           ? 'bg-green-500/20'
                                                           : ''
-                                                      }`}
+                                                      }}
                                                     >
                                                       <span
-                                                        className={`${
+                                                        className={${
                                                           isCorrectAnswer
                                                             ? 'text-green-300 font-semibold'
                                                             : ''
-                                                        }`}
+                                                        }}
                                                       >
                                                         {opt}
                                                       </span>
@@ -561,11 +528,12 @@ const SessionResults = () => {
                                         <div className="space-y-2 mb-4">
                                           {question.options.map((opt, oIndex) => {
                                             const isUserAnswer = userAnswers.includes(oIndex);
-                                            const isCorrectAnswer = question.correct_answers.includes(oIndex);
+                                            const isCorrectAnswer =
+                                              question.correct_answers.includes(oIndex);
                                             return (
                                               <div
                                                 key={oIndex}
-                                                className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
+                                                className={flex items-center justify-end gap-3 p-2 rounded text-right ${
                                                   isUserAnswer && !isCorrectAnswer
                                                     ? 'bg-red-500/20'
                                                     : ''
@@ -573,14 +541,14 @@ const SessionResults = () => {
                                                   isCorrectAnswer
                                                     ? 'bg-green-500/20'
                                                     : ''
-                                                }`}
+                                                }}
                                               >
                                                 <span
-                                                  className={`${
+                                                  className={${
                                                     isCorrectAnswer
                                                       ? 'text-green-300 font-semibold'
                                                       : ''
-                                                  }`}
+                                                  }}
                                                 >
                                                   {opt}
                                                 </span>
@@ -597,6 +565,7 @@ const SessionResults = () => {
                                           })}
                                         </div>
                                       )}
+
                                       {question.explanation && (
                                         <div className="mt-4 pt-4 border-t border-slate-600">
                                           <p className="font-bold text-yellow-300 flex items-center gap-2 mb-2">
@@ -613,7 +582,6 @@ const SessionResults = () => {
                               </div>
                             </DialogContent>
                           </Dialog>
-
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
