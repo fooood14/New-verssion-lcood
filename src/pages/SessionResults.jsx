@@ -105,12 +105,11 @@ const SessionResults = () => {
       .order('submitted_at', { ascending: false });
 
     if (resultsError) {
-     toast({
-  title: 'خطأ',
-  description: `فشل في تحميل النتائج: ${resultsError.message}`,
-  variant: 'destructive',
-});
-
+      toast({
+        title: 'خطأ',
+        description: `فشل في تحميل النتائج: ${resultsError.message}`,
+        variant: 'destructive',
+      });
     } else {
       setResults(resultsData || []);
     }
@@ -118,14 +117,14 @@ const SessionResults = () => {
     if (subscribedChannel) supabase.removeChannel(subscribedChannel);
 
     const channel = supabase
-      .channel(session_results_channel_for_${testId})
+      .channel(`session_results_channel_for_${testId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'test_results',
-          filter: test_id=eq.${testId},
+          filter: `test_id=eq.${testId}`,
         },
         async (payload) => {
           const { data: participantData } = await supabase
@@ -148,7 +147,7 @@ const SessionResults = () => {
           if (participantData) {
             toast({
               title: 'نتيجة جديدة!',
-              description: المشارك ${participantData.name} أنهى الاختبار.,
+              description: `المشارك ${participantData.name} أنهى الاختبار.`,
             });
           }
         }
@@ -238,7 +237,7 @@ const SessionResults = () => {
           heightLeft -= pageHeight;
         }
 
-        pdf.save(نتائج-${test.title}.pdf);
+        pdf.save(`نتائج-${test.title}.pdf`);
         setIsExporting(false);
         toast({
           title: 'تم التصدير',
@@ -257,7 +256,7 @@ const SessionResults = () => {
   };
 
   const handleCopyLink = () => {
-    const link = ${window.location.origin}/session/${testId};
+    const link = `${window.location.origin}/session/${testId}`;
     navigator.clipboard.writeText(link);
     toast({
       title: 'تم النسخ!',
@@ -465,11 +464,11 @@ const SessionResults = () => {
                                   return (
                                     <div
                                       key={q.id}
-                                      className={p-4 rounded-lg border-2 ${
+                                      className={`p-4 rounded-lg border-2 ${
                                         correct
                                           ? 'border-green-500/50 bg-green-500/10'
                                           : 'border-red-500/50 bg-red-500/10'
-                                      }}
+                                      }`}
                                     >
                                       <p className="font-semibold mb-2">
                                         {i + 1}. {question.question_text}
@@ -490,7 +489,7 @@ const SessionResults = () => {
                                                   return (
                                                     <div
                                                       key={oIndex}
-                                                      className={flex items-center justify-end gap-3 p-2 rounded text-right ${
+                                                      className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
                                                         isUserAnswer && !isCorrectAnswer
                                                           ? 'bg-red-500/20'
                                                           : ''
@@ -498,14 +497,14 @@ const SessionResults = () => {
                                                         isCorrectAnswer
                                                           ? 'bg-green-500/20'
                                                           : ''
-                                                      }}
+                                                      }`}
                                                     >
                                                       <span
-                                                        className={${
+                                                        className={`${
                                                           isCorrectAnswer
                                                             ? 'text-green-300 font-semibold'
                                                             : ''
-                                                        }}
+                                                        }`}
                                                       >
                                                         {opt}
                                                       </span>
@@ -534,7 +533,7 @@ const SessionResults = () => {
                                             return (
                                               <div
                                                 key={oIndex}
-                                                className={flex items-center justify-end gap-3 p-2 rounded text-right ${
+                                                className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
                                                   isUserAnswer && !isCorrectAnswer
                                                     ? 'bg-red-500/20'
                                                     : ''
@@ -542,14 +541,14 @@ const SessionResults = () => {
                                                   isCorrectAnswer
                                                     ? 'bg-green-500/20'
                                                     : ''
-                                                }}
+                                                }`}
                                               >
                                                 <span
-                                                  className={${
+                                                  className={`${
                                                     isCorrectAnswer
                                                       ? 'text-green-300 font-semibold'
                                                       : ''
-                                                  }}
+                                                  }`}
                                                 >
                                                   {opt}
                                                 </span>
