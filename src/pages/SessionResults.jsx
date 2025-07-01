@@ -25,11 +25,22 @@ const SessionResults = ({ sessionId }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: testData } = await supabase
+      if (!sessionId) {
+        alert("معرف الجلسة غير موجود.");
+        return;
+      }
+
+      const { data: testData, error: testError } = await supabase
         .from('tests')
         .select('*')
         .eq('id', sessionId)
         .single();
+
+      if (testError || !testData) {
+        alert("فشل في تحميل بيانات الجلسة.");
+        return;
+      }
+
       setTest(testData);
 
       const { data: questions } = await supabase
@@ -43,7 +54,7 @@ const SessionResults = ({ sessionId }) => {
 
       const { data: res } = await supabase
         .from('test_results')
-        .select('*')
+        .select('*, session_participants(name, phone_number, email)')
         .eq('test_id', sessionId);
 
       setResults(res || []);
@@ -65,7 +76,8 @@ const SessionResults = ({ sessionId }) => {
             <div key={result.id} className="bg-slate-800 p-4 rounded-lg text-white shadow border border-slate-600">
               <div className="flex justify-between items-center">
                 <div>
-                  <p><strong>الاسم:</strong> {result.name || result.email}</p>
+                  <p><strong>الاسم:</strong> {result.session_participants?.name || result.session_participants?.email}</p>
+                  <p><strong>الهاتف:</strong> {result.session_participants?.phone_number || 'غير متوفر'}</p>
                   <p><strong>النتيجة:</strong> {result.score}/{result.total_questions}</p>
                   <p><strong>المدة:</strong> {Math.floor(result.time_spent / 60)} دقيقة</p>
                 </div>
