@@ -55,13 +55,24 @@ const SessionResults = () => {
   const [subscribedChannel, setSubscribedChannel] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const isCorrect = (userAnswers = [], correctAnswers = []) => {
-    if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
-    if (userAnswers.length !== correctAnswers.length) return false;
-    const sortedUser = [...userAnswers].sort();
-    const sortedCorrect = [...correctAnswers].sort();
-    return sortedUser.every((val, i) => val === sortedCorrect[i]);
-  };
+  const isCorrect = (userAnswers = [], correctAnswers = [], question) => {
+  if (!question) return false;
+
+  // السؤال المركب
+  if (question.question_type === 'compound') {
+    if (!Array.isArray(question.parts) || !Array.isArray(userAnswers)) return false;
+    // نتحقق أن جميع الأشطر أُجابت بشكل صحيح
+    return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
+  }
+
+  // الأسئلة العادية (إجابة واحدة أو متعددة)
+  if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
+  if (userAnswers.length !== correctAnswers.length) return false;
+  const sortedUser = [...userAnswers].sort();
+  const sortedCorrect = [...correctAnswers].sort();
+  return sortedUser.every((val, i) => val === sortedCorrect[i]);
+};
+
 
   const questionsMap = useMemo(() => {
     if (!test || !test.questions) return new Map();
