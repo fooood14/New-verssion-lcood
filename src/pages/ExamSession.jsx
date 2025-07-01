@@ -9,7 +9,14 @@ import RegistrationStep from '@/components/exam/RegistrationStep';
 import ExamStep from '@/components/exam/ExamStep';
 import CompletionStep from '@/components/exam/CompletionStep';
 
-const isCorrect = (userAnswers, correctAnswers) => {
+const isCorrect = (userAnswers, correctAnswers, question) => {
+  if (!question) return false;
+
+  if (question.question_type === 'compound') {
+    if (!Array.isArray(question.parts) || !Array.isArray(userAnswers)) return false;
+    return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
+  }
+
   if (!userAnswers || !correctAnswers) return false;
   if (userAnswers.length !== correctAnswers.length) return false;
   const sortedUserAnswers = [...userAnswers].sort();
@@ -72,7 +79,7 @@ const ExamSession = () => {
           video_url: q.video_url || null,
           explanation: q.explanation || '',
           explanation_video_url: q.explanation_video_url || '',
-          parts: q.parts || []
+          parts: q.parts ? JSON.parse(q.parts) : []
         })).sort((a, b) => (a.id || '').localeCompare(b.id || ''))
       };
 
@@ -149,8 +156,8 @@ const ExamSession = () => {
     if (currentStep !== 'exam' || !exam || !exam.questions) return;
 
     const score = exam.questions.reduce((total, question) => {
-      const userAnswersForQuestion = answers[question.id] || [];
-      return total + (isCorrect(userAnswersForQuestion, question.correct_answers) ? 1 : 0);
+      const userAnswers = answers[question.id] || [];
+      return total + (isCorrect(userAnswers, question.correct_answers, question) ? 1 : 0);
     }, 0);
 
     const percentage = exam.questions.length > 0 ? Math.round((score / exam.questions.length) * 100) : 0;
@@ -164,7 +171,7 @@ const ExamSession = () => {
         total_questions: exam.questions.length,
         percentage,
         time_spent: timeSpent,
-        answers: answers,
+        answers,
         test_title: exam.title,
         submitted_at: new Date().toISOString()
       }]);
