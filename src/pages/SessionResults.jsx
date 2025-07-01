@@ -458,7 +458,8 @@ const SessionResults = () => {
                                   if (!question) return null;
 
                                   const userAnswers = result.answers[q.id] || [];
-                                  const correct = isCorrect(userAnswers, question.correct_answers);
+                                  const correct = isCorrect(userAnswers, question.correct_answers, question);
+
                                   const isCompound = question.question_type === 'compound';
 
                                   let parts = [];
