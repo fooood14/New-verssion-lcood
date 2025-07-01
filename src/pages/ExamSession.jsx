@@ -43,7 +43,7 @@ const ExamSession = () => {
 
       const { data, error } = await supabase
         .from('tests')
-        .select(`id, title, duration, user_id, original_test_id, is_restricted_by_email, allowed_emails`)
+        .select(`id, title, duration, user_id, original_test_id, is_restricted_by_email, allowed_emails, with_video`)
         .eq('id', examId)
         .single();
 
@@ -58,7 +58,7 @@ const ExamSession = () => {
 
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
-        .select('*')
+        .select('id, question_text, options, correct_answers, question_type, time_limit_seconds, parts, video_url, explanation, explanation_video_url')
         .eq('test_id', questionSourceId);
 
       if (questionsError) {
@@ -76,12 +76,12 @@ const ExamSession = () => {
           correct_answers: q.correct_answers || [],
           question_type: q.question_type || 'single',
           time_limit_seconds: q.time_limit_seconds,
-          video_url: q.video_url || null,
+          video_url: data.with_video ? (q.video_url || null) : null,
           explanation: q.explanation || '',
           explanation_video_url: q.explanation_video_url || '',
           parts: (() => {
             try {
-              return Array.isArray(q.parts) ? q.parts : JSON.parse(q.parts || '[]');
+              return q.parts ? JSON.parse(q.parts) : [];
             } catch {
               return [];
             }
