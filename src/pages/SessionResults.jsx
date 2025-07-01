@@ -547,3 +547,45 @@ const SessionResults = () => {
                               </div>
                             </DialogContent>
                           </Dialog>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent className="bg-slate-900 border-slate-700 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف نتيجة هذا المشارك؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleDeleteResult(result.id, result.participant_id)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  </CardContent>
+</Card>
+</motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SessionResults;
