@@ -113,7 +113,6 @@ const SessionResults = () => {
     } else {
       setResults(resultsData || []);
     }
-
     if (subscribedChannel) supabase.removeChannel(subscribedChannel);
 
     const channel = supabase
@@ -254,7 +253,6 @@ const SessionResults = () => {
         setIsExporting(false);
       });
   };
-
   const handleCopyLink = () => {
     const link = `${window.location.origin}/session/${testId}`;
     navigator.clipboard.writeText(link);
@@ -287,6 +285,27 @@ const SessionResults = () => {
       });
     }
   };
+
+  // ✅ تعديل احتساب النقاط للسؤال المركب
+  const score = test.questions.reduce((total, question) => {
+    const userAnswersForQuestion = (results[0]?.answers?.[question.id]) || [];
+
+    if (question.question_type === 'compound') {
+      let parts = [];
+      try {
+        parts = Array.isArray(question.parts)
+          ? question.parts
+          : JSON.parse(question.parts || '[]');
+      } catch {
+        parts = [];
+      }
+      const allCorrect = parts.every((part, index) => part.correct_answer === userAnswersForQuestion[index]);
+      return total + (allCorrect ? 1 : 0);
+    }
+
+    const singleCorrect = isCorrect(userAnswersForQuestion, question.correct_answers);
+    return total + (singleCorrect ? 1 : 0);
+  }, 0);
   if (loading || !test) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
@@ -379,6 +398,7 @@ const SessionResults = () => {
             </div>
           </CardHeader>
         </Card>
+
         <div id="results-container">
           {results.length === 0 ? (
             <Card className="text-center p-8 bg-slate-800/50 border-slate-700">
@@ -447,9 +467,23 @@ const SessionResults = () => {
                                   if (!question) return null;
 
                                   const userAnswers = result.answers[q.id] || [];
-                                  const correct = isCorrect(userAnswers, question.correct_answers);
-                                  const isCompound = question.question_type === 'compound';
+                                  let correct = false;
 
+                                  if (question.question_type === 'compound') {
+                                    let parts = [];
+                                    try {
+                                      parts = Array.isArray(question.parts)
+                                        ? question.parts
+                                        : JSON.parse(question.parts || '[]');
+                                    } catch {
+                                      parts = [];
+                                    }
+                                    correct = parts.every((part, idx) => part.correct_answer === userAnswers[idx]);
+                                  } else {
+                                    correct = isCorrect(userAnswers, question.correct_answers);
+                                  }
+
+                                  const isCompound = question.question_type === 'compound';
                                   let parts = [];
                                   if (isCompound) {
                                     try {
@@ -473,7 +507,6 @@ const SessionResults = () => {
                                       <p className="font-semibold mb-2">
                                         {i + 1}. {question.question_text}
                                       </p>
-
                                       {isCompound && parts.length > 0 ? (
                                         <div className="space-y-4 mb-4">
                                           {parts.map((part, partIdx) => {
@@ -528,8 +561,7 @@ const SessionResults = () => {
                                         <div className="space-y-2 mb-4">
                                           {question.options.map((opt, oIndex) => {
                                             const isUserAnswer = userAnswers.includes(oIndex);
-                                            const isCorrectAnswer =
-                                              question.correct_answers.includes(oIndex);
+                                            const isCorrectAnswer = question.correct_answers.includes(oIndex);
                                             return (
                                               <div
                                                 key={oIndex}
@@ -565,7 +597,6 @@ const SessionResults = () => {
                                           })}
                                         </div>
                                       )}
-
                                       {question.explanation && (
                                         <div className="mt-4 pt-4 border-t border-slate-600">
                                           <p className="font-bold text-yellow-300 flex items-center gap-2 mb-2">
@@ -582,6 +613,7 @@ const SessionResults = () => {
                               </div>
                             </DialogContent>
                           </Dialog>
+
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
