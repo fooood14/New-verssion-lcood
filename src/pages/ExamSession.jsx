@@ -58,7 +58,7 @@ const ExamSession = () => {
 
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
-        .select('id, question_text, options, correct_answers, question_type, time_limit_seconds, parts, video_url, explanation, explanation_video_url')
+        .select('*')
         .eq('test_id', questionSourceId);
 
       if (questionsError) {
@@ -81,7 +81,7 @@ const ExamSession = () => {
           explanation_video_url: q.explanation_video_url || '',
           parts: (() => {
             try {
-              return q.parts ? JSON.parse(q.parts) : [];
+              return Array.isArray(q.parts) ? q.parts : JSON.parse(q.parts || '[]');
             } catch {
               return [];
             }
