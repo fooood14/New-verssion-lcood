@@ -105,11 +105,12 @@ const SessionResults = () => {
       .order('submitted_at', { ascending: false });
 
     if (resultsError) {
-      toast({
-        title: 'خطأ',
-        description: فشل في تحميل النتائج: ${resultsError.message},
-        variant: 'destructive',
-      });
+     toast({
+  title: 'خطأ',
+  description: `فشل في تحميل النتائج: ${resultsError.message}`,
+  variant: 'destructive',
+});
+
     } else {
       setResults(resultsData || []);
     }
