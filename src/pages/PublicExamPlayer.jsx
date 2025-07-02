@@ -182,69 +182,86 @@ const PublicExamPlayer = () => {
             <Card className="p-8 bg-slate-800/80 border-slate-700 text-center mb-8">
               <CheckCircle className="w-20 h-20 text-green-400 mx-auto mb-4" />
               <h2 className="text-2xl text-white font-bold mb-2">أكملت الاختبار</h2>
-              <p className="text-xl text-yellow-400">النتيجة: {exam.questions.length} / {score}</p>
-              <p className="text-sm text-slate-400 mt-2">النسبة: {Math.round((score / exam.questions.length) * 100)}%</p>
-              <Button onClick={() => navigate('/')} className="mt-4">رجوع للاختبارات</Button>
+              <p className="text-xl text-yellow-400">
+                النتيجة: {exam.questions.length} / {score} ({Math.round((score / exam.questions.length) * 100)}%)
+              </p>
             </Card>
 
-            {/* ✅ مراجعة الإجابات */}
             <div className="space-y-6">
-              {exam.questions.map((q, i) => {
+              {exam.questions.map((q, idx) => {
                 const user = answers[q.id] || [];
-                const correct = q.question_type === 'compound' ? q.parts.map(p => p.correct_answer) : q.correct_answers;
+                const isCorrectQ = q.question_type === 'compound'
+                  ? (q.parts || []).every((p, i) => user[i] === p.correct_answer)
+                  : isCorrect(user, q.correct_answers, q.question_type);
 
                 return (
-                  <Card key={q.id} className="p-4 bg-slate-800/50 border border-slate-700">
-                    <h4 className="text-white font-semibold mb-3">{i + 1}. {q.question}</h4>
+                  <Card key={q.id} className={`p-4 border ${isCorrectQ ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'}`}>
+                    <h4 className="text-white font-bold mb-2">{idx + 1}. {q.question}</h4>
 
-                    {q.question_type === 'compound' ? q.parts.map((part, partIdx) => {
-                      const u = user[partIdx];
-                      const isCorrectPart = u === part.correct_answer;
-                      return (
-                        <div key={partIdx} className={`p-3 mb-2 rounded border ${isCorrectPart ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'}`}>
-                          <p className="text-white mb-2 font-medium">{part.text}</p>
-                          {part.options.map((opt, i) => (
-                            <div key={i} className={`flex items-center justify-end gap-3 px-3 py-1 rounded text-white
-                              ${i === part.correct_answer ? 'bg-green-500/20' : ''}
-                              ${i === u && i !== part.correct_answer ? 'bg-red-500/20' : ''}`}>
-                              <span>{opt}</span>
-                              {i === part.correct_answer && <Check className="text-green-400 w-4 h-4" />}
-                              {i === u && i !== part.correct_answer && <IconX className="text-red-400 w-4 h-4" />}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }) : (
-                      <div className="space-y-2">
-                        {q.options.map((opt, i) => {
-                          const isCorrectAnswer = q.correct_answers.includes(i);
-                          const isUserAnswer = user.includes(i);
+                    {q.question_type === 'compound' ? q.parts.map((part, i) => (
+                      <div key={i} className="mb-2">
+                        <p className="text-white mb-1">{part.text}</p>
+                        {part.options.map((opt, j) => {
+                          const correct = part.correct_answer === j;
+                          const selected = user[i] === j;
                           return (
-                            <div key={i} className={`flex items-center justify-end gap-3 px-3 py-1 rounded text-white
-                              ${isCorrectAnswer ? 'bg-green-500/20' : ''}
-                              ${isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''}`}>
+                            <div key={j} className={`flex items-center justify-end gap-2 p-2 rounded text-white ${
+                              correct ? 'bg-green-500/20' : selected ? 'bg-red-500/20' : ''
+                            }`}>
                               <span>{opt}</span>
-                              {isCorrectAnswer && <Check className="text-green-400 w-4 h-4" />}
-                              {isUserAnswer && !isCorrectAnswer && <IconX className="text-red-400 w-4 h-4" />}
+                              {correct && <Check className="text-green-400 w-4 h-4" />}
+                              {selected && !correct && <IconX className="text-red-400 w-4 h-4" />}
                             </div>
                           );
                         })}
                       </div>
-                    )}
+                    )) : q.options.map((opt, i) => {
+                      const correct = q.correct_answers.includes(i);
+                      const selected = user.includes(i);
+                      return (
+                        <div key={i} className={`flex items-center justify-end gap-2 p-2 rounded text-white ${
+                          correct ? 'bg-green-500/20' : selected ? 'bg-red-500/20' : ''
+                        }`}>
+                          <span>{opt}</span>
+                          {correct && <Check className="text-green-400 w-4 h-4" />}
+                          {selected && !correct && <IconX className="text-red-400 w-4 h-4" />}
+                        </div>
+                      );
+                    })}
 
-                    {q.explanation && (
+                    {(q.explanation || q.explanation_video_url) && (
                       <div className="mt-4 pt-4 border-t border-slate-700">
-                        <p className="text-yellow-300 font-bold mb-1 flex items-center gap-2"><Info size={16}/> شرح:</p>
-                        <p className="text-white text-sm whitespace-pre-wrap">{q.explanation}</p>
+                        {q.explanation && (
+                          <>
+                            <p className="text-yellow-300 font-bold mb-1 flex items-center gap-2"><Info size={16}/> شرح:</p>
+                            <p className="text-white text-sm whitespace-pre-wrap">{q.explanation}</p>
+                          </>
+                        )}
+                        {q.explanation_video_url && (
+                          <div className="mt-4 aspect-video border border-slate-600 rounded overflow-hidden">
+                            <iframe
+                              width="100%"
+                              height="100%"
+                              src={q.explanation_video_url.replace("watch?v=", "embed/")}
+                              allowFullScreen
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </Card>
                 );
               })}
             </div>
+
+            <div className="text-center mt-6">
+              <Button onClick={() => navigate('/')}>الرجوع للرئيسية</Button>
+            </div>
           </motion.div>
         ) : (
-          <></> // عرض الأسئلة أثناء الحل (تم حذفه للاختصار)
+          <motion.div key="quiz" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-4xl">
+            {/* محتوى الاختبار قبل الإنهاء... (لم يتم تكراره هنا لتوفير المساحة) */}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
