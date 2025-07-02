@@ -159,7 +159,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
           <div className="space-y-6">
             {parts.map((part, partIdx) => (
               <div key={partIdx} className="p-4 bg-slate-700/50 border border-slate-600 rounded-xl">
-                <p className="text-white font-medium mb-3">شطر {partIdx + 1}: {part.text}</p>
+                <p className="text-white font-medium mb-3">{partIdx + 1}: {part.text}</p>
                 <div className="space-y-3">
                   {part.options.map((option, index) => (
                     <motion.div key={index} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
