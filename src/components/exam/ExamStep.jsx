@@ -1,7 +1,6 @@
-// الاستيرادات كما هي
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, ArrowLeft, CheckCircle, Check, RotateCcw, Clock } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle, RotateCcw, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -86,7 +85,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
 
   const currentAnswers = Array.isArray(answers[currentQuestion.id]) ? answers[currentQuestion.id] : [];
 
-  // ✅ تأكد أن parts مصفوفة حقيقية
   let parts = [];
   if (currentQuestion.question_type === 'compound') {
     if (Array.isArray(currentQuestion.parts)) {
@@ -137,6 +135,16 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
       </div>
 
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
+        {/* ✅ عرض الفيديو إن وُجد */}
+        {currentQuestion.video_url && (
+          <div className="mb-6">
+            <video controls className="w-full rounded-lg">
+              <source src={currentQuestion.video_url} type="video/mp4" />
+              المتصفح لا يدعم تشغيل الفيديو.
+            </video>
+          </div>
+        )}
+
         <div className="flex justify-between items-start mb-6">
           <h3 className="text-xl font-semibold text-white text-right flex-1">{currentQuestion.question}</h3>
           {currentQuestion.time_limit_seconds && (
