@@ -339,8 +339,6 @@ const PublicExamPlayer = () => {
               <Button onClick={() => navigate('/')}>الرجوع للرئيسية</Button>
             </div>
           </motion.div>
-        ) : (
-          {/* 👇 يمكنك وضع هنا واجهة الامتحان قبل الإنهاء */}
 ) : (
   <motion.div
     key="quiz"
