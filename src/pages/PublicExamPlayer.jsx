@@ -34,7 +34,7 @@ const PublicExamPlayer = () => {
 
   const nextQuestion = () => {
     if (exam && currentQuestionIndex < exam.questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
+      setCurrentQuestionIndex(prev => prev + 1);
     } else {
       handleSubmit();
     }
@@ -60,8 +60,7 @@ const PublicExamPlayer = () => {
   const handleAnswerSelect = (questionId, answerIndex, partIndex = null) => {
     setAnswers((prev) => {
       const updated = { ...prev };
-      const question = exam.questions.find((q) => q.id === questionId);
-
+      const question = exam.questions.find(q => q.id === questionId);
       if (question.question_type === 'compound') {
         const current = updated[questionId] || [];
         current[partIndex] = answerIndex;
@@ -88,7 +87,7 @@ const PublicExamPlayer = () => {
   };
 
   const prevQuestion = () => {
-    if (currentQuestionIndex > 0) setCurrentQuestionIndex((prev) => prev - 1);
+    if (currentQuestionIndex > 0) setCurrentQuestionIndex(prev => prev - 1);
   };
 
   const formatTime = (seconds) => {
@@ -115,9 +114,7 @@ const PublicExamPlayer = () => {
       }
 
       const formatted = {
-        id: data.id,
-        title: data.title,
-        duration: data.duration,
+        ...data,
         questions: (data.questions || []).map(q => ({
           id: q.id,
           question: q.question_text,
@@ -140,20 +137,16 @@ const PublicExamPlayer = () => {
       setExam(formatted);
       setLoading(false);
     };
+
     fetchExam();
   }, [examId, navigate]);
 
   useEffect(() => {
-    if (exam && exam.questions.length > 0) {
-      const current = exam.questions[currentQuestionIndex];
-      if (current?.time_limit_seconds) {
-        setQuestionTimeLeft(current.time_limit_seconds);
-      } else {
-        setQuestionTimeLeft(null);
-      }
-      if (videoRef.current && current.video_url) {
-        videoRef.current.src = current.video_url.replace("watch?v=", "embed/") + "?autoplay=1";
-      }
+    if (!exam || !exam.questions.length) return;
+    const current = exam.questions[currentQuestionIndex];
+    setQuestionTimeLeft(current?.time_limit_seconds || null);
+    if (videoRef.current && current.video_url) {
+      videoRef.current.src = current.video_url.replace("watch?v=", "embed/") + "?autoplay=1";
     }
   }, [currentQuestionIndex, exam]);
 
@@ -185,88 +178,117 @@ const PublicExamPlayer = () => {
               <p className="text-xl text-yellow-400">النتيجة: {exam.questions.length} / {score}</p>
             </Card>
 
-            {/* المراجعة محفوظة كما هي */}
-            {/* ... يمكن إضافتها هنا إن أردت */}
-          </motion.div>
-        ) : (
-          <motion.div key="exam" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-4xl">
-            <h2 className="text-2xl font-bold text-white text-center mb-4">{exam.title}</h2>
+            <h3 className="text-xl font-bold text-white text-center mb-4">مراجعة الإجابات</h3>
+            <div className="space-y-6">
+              {exam.questions.map((q, i) => {
+                const userAnswers = answers[q.id] || [];
+                const isCompound = q.question_type === 'compound';
 
-            {currentQuestion.video_url && (
-              <div className="mb-6 aspect-video bg-black border border-slate-700 rounded overflow-hidden">
-                <iframe ref={videoRef} width="100%" height="100%" src={currentQuestion.video_url.replace("watch?v=", "embed/") + "?autoplay=1"} allowFullScreen></iframe>
-              </div>
-            )}
+                return (
+                  <div
+                    key={q.id}
+                    className={`p-4 rounded-lg border-2 ${
+                      isCompound
+                        ? (userAnswers.length === (q.parts?.length || 0) && q.parts.every((p, idx) => userAnswers[idx] === p.correct_answer)
+                          ? 'border-green-500/50 bg-green-500/10'
+                          : 'border-red-500/50 bg-red-500/10')
+                        : (isCorrect(userAnswers, q.correct_answers)
+                          ? 'border-green-500/50 bg-green-500/10'
+                          : 'border-red-500/50 bg-red-500/10')
+                    }`}
+                  >
+                    <p className="font-semibold mb-2 text-white">{i + 1}. {q.question}</p>
 
-            <Card className="p-6 bg-slate-800/80 border-slate-700 mb-6">
-              <div className="flex justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">
-                  {currentQuestionIndex + 1}. {currentQuestion.question}
-                </h3>
-                {questionTimeLeft !== null && (
-                  <div className="flex items-center gap-2 text-orange-400 font-mono text-lg">
-                    <Clock className="w-5 h-5" />
-                    <span>{formatTime(questionTimeLeft)}</span>
-                  </div>
-                )}
-              </div>
-
-              {currentQuestion.question_type === 'compound' ? (
-                <div className="space-y-4">
-                  {currentQuestion.parts.map((part, partIdx) => (
-                    <div key={partIdx} className="p-3 border border-slate-600 rounded bg-slate-700/40">
-                      <p className="text-white font-medium mb-2">{part.text}</p>
-                      <div className="space-y-2">
-                        {part.options.map((opt, i) => (
-                          <motion.div key={i} whileHover={{ scale: 1.01 }}>
-                            <button
-                              onClick={() => handleAnswerSelect(currentQuestion.id, i, partIdx)}
-                              className={`w-full text-right p-3 rounded border-2 ${
-                                currentAnswers[partIdx] === i
-                                  ? 'border-yellow-500 bg-yellow-500/20'
-                                  : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                    {isCompound ? (
+                      <div className="space-y-4">
+                        {q.parts.map((part, partIdx) => {
+                          const u = userAnswers[partIdx];
+                          const isCorrectPart = u === part.correct_answer;
+                          return (
+                            <div
+                              key={partIdx}
+                              className={`p-3 rounded border text-white ${
+                                isCorrectPart ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'
                               }`}
                             >
-                              <span className="text-white">{opt}</span>
-                            </button>
-                          </motion.div>
-                        ))}
+                              <p className="mb-2 font-medium">{part.text}</p>
+                              <div className="space-y-1">
+                                {part.options.map((opt, optIdx) => {
+                                  const isSelected = u === optIdx;
+                                  const isCorrectAnswer = part.correct_answer === optIdx;
+                                  return (
+                                    <div
+                                      key={optIdx}
+                                      className={`flex items-center justify-end gap-3 p-2 rounded ${
+                                        isCorrectAnswer ? 'bg-green-500/20' : ''
+                                      } ${isSelected && !isCorrectAnswer ? 'bg-red-500/20' : ''}`}
+                                    >
+                                      <span>{opt}</span>
+                                      {isCorrectAnswer && <Check className="w-5 h-5 text-green-400" />}
+                                      {isSelected && !isCorrectAnswer && <IconX className="w-5 h-5 text-red-400" />}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {currentQuestion.options.map((opt, i) => (
-                    <motion.div key={i} whileHover={{ scale: 1.01 }}>
-                      <button
-                        onClick={() => handleAnswerSelect(currentQuestion.id, i)}
-                        className={`w-full text-right p-3 rounded border-2 ${
-                          currentAnswers.includes(i)
-                            ? 'border-yellow-500 bg-yellow-500/20'
-                            : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
-                        }`}
-                      >
-                        <span className="text-white">{opt}</span>
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </Card>
+                    ) : (
+                      <div className="space-y-2">
+                        {q.options.map((opt, oIndex) => {
+                          const isUserAnswer = userAnswers.includes(oIndex);
+                          const isCorrectAnswer = q.correct_answers.includes(oIndex);
+                          return (
+                            <div
+                              key={oIndex}
+                              className={`flex items-center justify-end gap-3 p-2 rounded text-right text-white ${
+                                isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''
+                              } ${isCorrectAnswer ? 'bg-green-500/20' : ''}`}
+                            >
+                              <span>{opt}</span>
+                              {isCorrectAnswer && <Check className="w-5 h-5 text-green-400" />}
+                              {isUserAnswer && !isCorrectAnswer && <IconX className="w-5 h-5 text-red-400" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
-            <div className="flex justify-between mt-4">
-              <Button onClick={prevQuestion} disabled={currentQuestionIndex === 0} variant="outline">السابق</Button>
-              <div className="flex gap-4">
-                <Button onClick={() => clearAnswer(currentQuestion.id)} variant="outline" className="border-red-500 text-red-400 hover:bg-red-500/20">إلغاء</Button>
-                {currentQuestionIndex === exam.questions.length - 1 ? (
-                  <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700">إنهاء</Button>
-                ) : (
-                  <Button onClick={nextQuestion}>التالي</Button>
-                )}
-              </div>
+                    {(q.explanation || q.explanation_video_url) && (
+                      <div className="mt-4 pt-4 border-t border-slate-600">
+                        {q.explanation && (
+                          <>
+                            <p className="font-bold text-yellow-300 flex items-center gap-2 mb-2">
+                              <Info size={16} />
+                              شرح الإجابة:
+                            </p>
+                            <p className="text-slate-300 whitespace-pre-wrap">{q.explanation}</p>
+                          </>
+                        )}
+                        {q.explanation_video_url && (
+                          <div className="mt-4 aspect-video bg-black rounded overflow-hidden border border-slate-700">
+                            <iframe
+                              width="100%"
+                              height="100%"
+                              src={q.explanation_video_url.replace("watch?v=", "embed/")}
+                              title="شرح بالفيديو"
+                              allowFullScreen
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center mt-6">
+              <Button onClick={() => navigate('/')}>الرجوع للاختبارات</Button>
             </div>
           </motion.div>
+        ) : (
+          <div className="text-white text-center">...عرض الأسئلة أثناء الاختبار</div>
         )}
       </AnimatePresence>
     </div>
