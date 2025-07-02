@@ -182,7 +182,10 @@ const PublicExamPlayer = () => {
             <Card className="p-8 bg-slate-800/80 border-slate-700 text-center mb-8">
               <CheckCircle className="w-20 h-20 text-green-400 mx-auto mb-4" />
               <h2 className="text-2xl text-white font-bold mb-2">أكملت الاختبار</h2>
-              <p className="text-xl text-yellow-400">النتيجة: {score} / {exam.questions.length}</p>
+           <p className="text-xl text-yellow-400">
+  النتيجة: {exam.questions.length} / {score}
+</p>
+
             </Card>
             {/* ... (مراجعة الأسئلة كما هو) */}
           </motion.div>
