@@ -183,105 +183,68 @@ const PublicExamPlayer = () => {
               <CheckCircle className="w-20 h-20 text-green-400 mx-auto mb-4" />
               <h2 className="text-2xl text-white font-bold mb-2">أكملت الاختبار</h2>
               <p className="text-xl text-yellow-400">النتيجة: {exam.questions.length} / {score}</p>
+              <p className="text-sm text-slate-400 mt-2">النسبة: {Math.round((score / exam.questions.length) * 100)}%</p>
+              <Button onClick={() => navigate('/')} className="mt-4">رجوع للاختبارات</Button>
             </Card>
 
-            {/* ✅ مراجعة الأسئلة بتنسيق موحد */}
-            <div className="mt-8">
-              <h3 className="text-2xl font-bold text-white text-center mb-4">مراجعة الإجابات</h3>
-              <div className="space-y-4">
-                {exam.questions.map((q, i) => {
-                  const userAnswers = answers[q.id] || [];
-                  const isCompound = q.question_type === 'compound';
+            {/* ✅ مراجعة الإجابات */}
+            <div className="space-y-6">
+              {exam.questions.map((q, i) => {
+                const user = answers[q.id] || [];
+                const correct = q.question_type === 'compound' ? q.parts.map(p => p.correct_answer) : q.correct_answers;
 
-                  return (
-                    <div
-                      key={q.id}
-                      className={`p-4 rounded-lg border-2 ${
-                        isCompound
-                          ? (userAnswers.length === (q.parts?.length || 0) && q.parts.every((p, idx) => userAnswers[idx] === p.correct_answer)
-                            ? 'border-green-500/50 bg-green-500/10'
-                            : 'border-red-500/50 bg-red-500/10')
-                          : (isCorrect(userAnswers, q.correct_answers)
-                            ? 'border-green-500/50 bg-green-500/10'
-                            : 'border-red-500/50 bg-red-500/10')
-                      }`}
-                    >
-                      <p className="font-semibold mb-2 text-white">{i + 1}. {q.question}</p>
+                return (
+                  <Card key={q.id} className="p-4 bg-slate-800/50 border border-slate-700">
+                    <h4 className="text-white font-semibold mb-3">{i + 1}. {q.question}</h4>
 
-                      {isCompound ? (
-                        <div className="space-y-4">
-                          {q.parts.map((part, partIdx) => {
-                            const u = userAnswers[partIdx];
-                            const isCorrectPart = u === part.correct_answer;
-                            return (
-                              <div
-                                key={partIdx}
-                                className={`p-3 rounded border text-white ${
-                                  isCorrectPart ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'
-                                }`}
-                              >
-                                <p className="mb-2 font-medium">{part.text}</p>
-                                <div className="space-y-1">
-                                  {part.options.map((opt, optIdx) => {
-                                    const isSelected = u === optIdx;
-                                    const isCorrectAnswer = part.correct_answer === optIdx;
-                                    return (
-                                      <div
-                                        key={optIdx}
-                                        className={`flex items-center justify-end gap-3 p-2 rounded text-white ${
-                                          isCorrectAnswer ? 'bg-green-500/20' : ''
-                                        } ${isSelected && !isCorrectAnswer ? 'bg-red-500/20' : ''}`}
-                                      >
-                                        <span>{opt}</span>
-                                        {isCorrectAnswer && <Check className="w-5 h-5 text-green-400" />}
-                                        {isSelected && !isCorrectAnswer && <IconX className="w-5 h-5 text-red-400" />}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
+                    {q.question_type === 'compound' ? q.parts.map((part, partIdx) => {
+                      const u = user[partIdx];
+                      const isCorrectPart = u === part.correct_answer;
+                      return (
+                        <div key={partIdx} className={`p-3 mb-2 rounded border ${isCorrectPart ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'}`}>
+                          <p className="text-white mb-2 font-medium">{part.text}</p>
+                          {part.options.map((opt, i) => (
+                            <div key={i} className={`flex items-center justify-end gap-3 px-3 py-1 rounded text-white
+                              ${i === part.correct_answer ? 'bg-green-500/20' : ''}
+                              ${i === u && i !== part.correct_answer ? 'bg-red-500/20' : ''}`}>
+                              <span>{opt}</span>
+                              {i === part.correct_answer && <Check className="text-green-400 w-4 h-4" />}
+                              {i === u && i !== part.correct_answer && <IconX className="text-red-400 w-4 h-4" />}
+                            </div>
+                          ))}
                         </div>
-                      ) : (
-                        <div className="space-y-2 mb-4">
-                          {q.options.map((opt, oIndex) => {
-                            const isUserAnswer = userAnswers.includes(oIndex);
-                            const isCorrectAnswer = q.correct_answers.includes(oIndex);
-                            return (
-                              <div
-                                key={oIndex}
-                                className={`flex items-center justify-end gap-3 p-2 rounded text-right text-white ${
-                                  isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''
-                                } ${isCorrectAnswer ? 'bg-green-500/20' : ''}`}
-                              >
-                                <span>{opt}</span>
-                                {isCorrectAnswer && <Check className="w-5 h-5 text-green-400" />}
-                                {isUserAnswer && !isCorrectAnswer && <IconX className="w-5 h-5 text-red-400" />}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                      );
+                    }) : (
+                      <div className="space-y-2">
+                        {q.options.map((opt, i) => {
+                          const isCorrectAnswer = q.correct_answers.includes(i);
+                          const isUserAnswer = user.includes(i);
+                          return (
+                            <div key={i} className={`flex items-center justify-end gap-3 px-3 py-1 rounded text-white
+                              ${isCorrectAnswer ? 'bg-green-500/20' : ''}
+                              ${isUserAnswer && !isCorrectAnswer ? 'bg-red-500/20' : ''}`}>
+                              <span>{opt}</span>
+                              {isCorrectAnswer && <Check className="text-green-400 w-4 h-4" />}
+                              {isUserAnswer && !isCorrectAnswer && <IconX className="text-red-400 w-4 h-4" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                      {q.explanation && (
-                        <div className="mt-4 pt-4 border-t border-slate-600">
-                          <p className="font-bold text-yellow-300 flex items-center gap-2 mb-2">
-                            <Info size={16} />
-                            شرح الإجابة:
-                          </p>
-                          <p className="text-slate-300 whitespace-pre-wrap">{q.explanation}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    {q.explanation && (
+                      <div className="mt-4 pt-4 border-t border-slate-700">
+                        <p className="text-yellow-300 font-bold mb-1 flex items-center gap-2"><Info size={16}/> شرح:</p>
+                        <p className="text-white text-sm whitespace-pre-wrap">{q.explanation}</p>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           </motion.div>
         ) : (
-          // ... محتوى الامتحان قبل الإنهاء
-          <></>
+          <></> // عرض الأسئلة أثناء الحل (تم حذفه للاختصار)
         )}
       </AnimatePresence>
     </div>
