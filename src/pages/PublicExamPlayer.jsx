@@ -340,7 +340,9 @@ const PublicExamPlayer = () => {
             </div>
           </motion.div>
         ) : (
-          // 👇 يمكنك وضع هنا واجهة الامتحان قبل الإنهاء<motion.div key="quiz" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-4xl">
+          {/* 👇 يمكنك وضع هنا واجهة الامتحان قبل الإنهاء */}
+<motion.div key="quiz" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-4xl">
+
   <h2 className="text-2xl font-bold text-white text-center mb-4">{exam.title}</h2>
 
   {currentQuestion.video_url && (
