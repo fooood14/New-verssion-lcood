@@ -1,3 +1,4 @@
+// الاستيرادات
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,7 +48,7 @@ const PublicExamPlayer = () => {
       if (q.question_type === 'compound') {
         const correct = (q.parts || []).map(p => p.correct_answer);
         const isAllCorrect = correct.length && user.length === correct.length && user.every((u, i) => u === correct[i]);
-        if (isAllCorrect) total += 1; // ✅ كل سؤال مركب = 1
+        if (isAllCorrect) total += 1;
       } else {
         if (isCorrect(user, q.correct_answers, q.question_type)) total++;
       }
@@ -129,7 +130,10 @@ const PublicExamPlayer = () => {
           time_limit_seconds: q.time_limit_seconds,
           parts: (() => {
             try {
-              return typeof q.parts === 'string' ? JSON.parse(q.parts) : (q.parts || []);
+              if (!q.parts) return [];
+              if (typeof q.parts === 'string') return JSON.parse(q.parts);
+              if (Array.isArray(q.parts)) return q.parts;
+              return [];
             } catch {
               return [];
             }
@@ -178,16 +182,13 @@ const PublicExamPlayer = () => {
       <AnimatePresence mode="wait">
         {isFinished ? (
           <motion.div key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-4xl">
-            {/* ✅ عرض النتيجة والمراجعة */}
             <Card className="p-8 bg-slate-800/80 border-slate-700 text-center mb-8">
               <CheckCircle className="w-20 h-20 text-green-400 mx-auto mb-4" />
               <h2 className="text-2xl text-white font-bold mb-2">أكملت الاختبار</h2>
-           <p className="text-xl text-yellow-400">
-  النتيجة: {exam.questions.length} / {score}
-</p>
-
+              <p className="text-xl text-yellow-400">
+                النتيجة: {exam.questions.length} / {score}
+              </p>
             </Card>
-            {/* ... (مراجعة الأسئلة كما هو) */}
           </motion.div>
         ) : (
           <motion.div key="quiz" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-4xl">
