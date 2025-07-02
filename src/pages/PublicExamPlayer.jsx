@@ -214,7 +214,7 @@ const PublicExamPlayer = () => {
                 <div className="space-y-4">
                   {currentQuestion.parts.map((part, partIdx) => (
                     <div key={partIdx} className="p-3 border border-slate-600 rounded bg-slate-700/40">
-                      <p className="text-white font-medium mb-2">شطر {partIdx + 1}: {part.text}</p>
+                      <p className="text-white font-medium mb-2">{partIdx + 1}: {part.text}</p>
                       <div className="space-y-2">
                         {part.options.map((opt, i) => (
                           <motion.div key={i} whileHover={{ scale: 1.01 }}>
