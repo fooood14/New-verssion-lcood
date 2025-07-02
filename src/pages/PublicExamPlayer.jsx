@@ -354,7 +354,7 @@ const PublicExamPlayer = () => {
         src={currentQuestion.video_url.replace("watch?v=", "embed/") + "?autoplay=1"}
         allowFullScreen
       ></iframe>
-    </div>
+    </div>)
   )}
 
   <Card className="p-6 bg-slate-800/80 border-slate-700 mb-6">
