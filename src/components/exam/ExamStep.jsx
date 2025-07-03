@@ -138,10 +138,14 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         {/* ✅ عرض الفيديو إن وُجد */}
         {currentQuestion.video_url && (
           <div className="mb-6">
-            <video controls className="w-full rounded-lg">
-              <source src={currentQuestion.video_url} type="video/mp4" />
-              المتصفح لا يدعم تشغيل الفيديو.
-            </video>
+            <video
+  key={currentQuestion.video_url} // 💡 هذا هو المفتاح لتحديث الفيديو
+  controls
+  className="w-full rounded-lg"
+>
+  <source src={currentQuestion.video_url} type="video/mp4" />
+  المتصفح لا يدعم تشغيل الفيديو.
+</video>
           </div>
         )}
 
