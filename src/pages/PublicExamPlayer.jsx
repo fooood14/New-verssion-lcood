@@ -240,6 +240,24 @@ const PublicExamPlayer = () => {
               <DialogContent className="max-w-3xl bg-slate-900 border border-slate-700">
                 {reviewDialogIndex !== null && (
                   <>
+                    {exam.questions[reviewDialogIndex].explanation && (
+  <div className="mt-6 pt-4 border-t border-slate-700">
+    <p className="text-yellow-300 font-bold mb-1 flex items-center gap-2">
+      <Info size={16} /> شرح:
+    </p>
+    <p className="text-white text-sm whitespace-pre-wrap mb-3">
+      {exam.questions[reviewDialogIndex].explanation}
+    </p>
+    {exam.questions[reviewDialogIndex].explanation_video_url && (
+      <iframe
+        className="w-full h-64 rounded border border-slate-700"
+        src={exam.questions[reviewDialogIndex].explanation_video_url.replace('watch?v=', 'embed/')}
+        allowFullScreen
+      ></iframe>
+    )}
+  </div>
+)}
+
                     <h3 className="text-white font-bold mb-4 text-lg">
                       {reviewDialogIndex + 1}. {exam.questions[reviewDialogIndex].question}
                     </h3>
