@@ -158,7 +158,6 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ محدث لدعم withVideo
   const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
     if (!user) return;
 
@@ -171,7 +170,7 @@ const Dashboard = () => {
           user_id: user.id,
           is_permanent: false,
           original_test_id: exam.id,
-          with_video: withVideo // ✅ نمرر القيمة
+          with_video: withVideo
         })
         .select('id')
         .single();
@@ -195,13 +194,13 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen p-6">
-      <header className="flex justify-between items-center mb-8">
+    <div className="min-h-screen px-4 py-6">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white">لوحة التحكم</h1>
-          <p className="text-slate-400">مرحباً بعودتك، {user?.email}</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">لوحة التحكم</h1>
+          <p className="text-slate-400 text-sm md:text-base">مرحباً بعودتك، {user?.email}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
           <Button variant="ghost" size="icon" onClick={handleAdminAccess} className="text-slate-300 hover:bg-slate-700 hover:text-yellow-400">
             <Shield className="h-6 w-6" />
           </Button>
@@ -212,13 +211,15 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <Logo />
+      <div className="flex justify-center mb-6">
+        <Logo />
+      </div>
 
       <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <DashboardStats stats={stats} />
 
-        <div className="flex justify-between items-center mb-6 mt-10">
-          <h2 className="text-2xl font-semibold text-white">اختباراتك</h2>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white">اختباراتك</h2>
           <Button onClick={() => setShowCreateDialog(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
             <Plus className="w-4 h-4 ml-2" />
             إنشاء اختبار جديد
@@ -246,7 +247,7 @@ const Dashboard = () => {
                 onDelete={handleDelete}
                 onCopyLink={handleCreateSessionOrCopyLink}
                 onViewResults={handleViewResults}
-                onStartSession={handleCreateSessionOrCopyLink} // ✅ ضروري
+                onStartSession={handleCreateSessionOrCopyLink}
               />
             ))}
           </div>
