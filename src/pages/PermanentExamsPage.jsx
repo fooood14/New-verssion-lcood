@@ -164,3 +164,4 @@
     </AlertDialogContent>
   </AlertDialog>
 </div>
+export default PermanentExamsPage;
