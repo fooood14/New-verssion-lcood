@@ -10,17 +10,19 @@ const ExamVideos = () => {
   useEffect(() => {
     const fetchQuestions = async () => {
       setLoading(true);
+
       const { data, error } = await supabase
         .from('questions')
         .select('id, question_text, video_url')
         .eq('test_id', examId)
-        .order('order', { ascending: true });
+        .order('order_index', { ascending: true }); // تأكد أن هذا العمود يحتوي على قيم
 
       if (error) {
         console.error('خطأ في تحميل الأسئلة:', error.message);
       } else {
         setQuestions(data);
       }
+
       setLoading(false);
     };
 
