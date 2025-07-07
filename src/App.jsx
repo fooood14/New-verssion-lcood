@@ -11,8 +11,10 @@ import LoginPage from '@/pages/LoginPage';
 import SessionResults from '@/pages/SessionResults';
 import SiteAdminPage from '@/pages/SiteAdminPage';
 import PermanentExamsPage from '@/pages/PermanentExamsPage';
+import ExamVideos from '@/pages/ExamVideos'; // ✅ استيراد الصفحة الجديدة
 import { Toaster } from '@/components/ui/toaster';
 
+// المسار الخاص بالمشرف الإداري
 const AdminRoute = ({ children, session }) => {
   const isAdmin = sessionStorage.getItem('isAdminAccess') === 'true';
   if (!session) return <Navigate to="/login" />;
@@ -20,13 +22,15 @@ const AdminRoute = ({ children, session }) => {
   return children;
 };
 
+// مسار محمي للمستخدمين المسجلين
 const ProtectedRoute = ({ children, session }) => {
-    if (!session) {
-      return <Navigate to="/login" />;
-    }
-    return children;
+  if (!session) {
+    return <Navigate to="/login" />;
+  }
+  return children;
 };
 
+// مسار المشرف العام
 const SiteAdminRoute = ({ children }) => {
   const isSiteAdmin = sessionStorage.getItem('isSiteAdminAccess') === 'true';
   if (!isSiteAdmin) {
@@ -34,7 +38,6 @@ const SiteAdminRoute = ({ children }) => {
   }
   return children;
 };
-
 
 function App() {
   const [session, setSession] = useState(null);
@@ -88,6 +91,7 @@ function App() {
           <Route path="/results/:testId" element={<ProtectedRoute session={session}><SessionResults /></ProtectedRoute>} />
           <Route path="/session/:examId" element={<ExamSession />} />
           <Route path="/exam/:examId" element={<PublicExamPlayer />} />
+          <Route path="/exam-videos/:examId" element={<ExamVideos />} /> {/* ✅ المسار الجديد */}
         </Routes>
         <Toaster />
       </div>
