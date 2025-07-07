@@ -16,10 +16,11 @@ const ExamVideos = () => {
     const fetchData = async () => {
       setLoading(true);
 
-      // 1. اجلب test_id من جدول الجلسات
+      console.log("📌 sessionId:", sessionId);
+
       const { data: sessionData, error: sessionError } = await supabase
         .from('exam_sessions')
-        .select('test_id')
+        .select('original_test_id')
         .eq('id', sessionId)
         .single();
 
@@ -29,17 +30,16 @@ const ExamVideos = () => {
         return;
       }
 
-      const testId = sessionData.test_id;
+      const testId = sessionData.original_test_id;
 
-      // 2. اجلب الأسئلة المرتبطة بالاختبار (حتى بدون فيديو)
       const { data: questionsData, error: questionError } = await supabase
         .from('questions')
         .select('id, question_text, video_url, time_limit_seconds')
         .eq('test_id', testId)
         .order('order_index', { ascending: true });
 
-      if (questionError) {
-        console.error('❌ خطأ في تحميل الأسئلة:', questionError.message);
+      if (questionError || !questionsData || questionsData.length === 0) {
+        console.warn('⚠️ لم يتم العثور على أسئلة.');
       } else {
         setQuestions(questionsData);
       }
@@ -62,7 +62,7 @@ const ExamVideos = () => {
       const videoDuration = video?.duration || 0;
       const usedDuration = customLimit && customLimit > 0
         ? customLimit
-        : Math.floor(videoDuration || 15); // 👈 في حالة عدم وجود فيديو نضع وقت افتراضي
+        : Math.floor(videoDuration || 15);
 
       setDuration(usedDuration);
       setTimeLeft(usedDuration);
@@ -85,8 +85,7 @@ const ExamVideos = () => {
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
       video.addEventListener('ended', goToNextVideo);
     } else {
-      // لا يوجد فيديو، لكن نفعل العداد يدويًا
-      handleLoadedMetadata();
+      handleLoadedMetadata(); // لو ما كاينش فيديو
     }
 
     return () => {
@@ -134,7 +133,6 @@ const ExamVideos = () => {
           </div>
         )}
 
-        {/* شريط التقدم */}
         <div className="w-full bg-gray-600 h-2 rounded mt-2">
           <div
             className="bg-green-400 h-2 rounded"
@@ -142,7 +140,6 @@ const ExamVideos = () => {
           />
         </div>
 
-        {/* الوقت المتبقي وزر التخطي */}
         <div className="flex justify-between items-center mt-3">
           <p className="text-white">⏱️ الوقت المتبقي: {timeLeft} ثانية</p>
           {currentVideoIndex < questions.length - 1 && (
