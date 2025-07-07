@@ -1,78 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Eye } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
-import PublicExamCard from '@/components/PublicExamCard';
-import Header from '@/components/Header';
-import Logo from '@/components/Logo';
 
-const PublicExams = () => {
-  const [exams, setExams] = useState([]);
+const ExamVideos = () => {
+  const { examId } = useParams();
+  const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState(null);
 
   useEffect(() => {
-    const getSessionAndExams = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        fetchExams();
+    const fetchQuestions = async () => {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('id, video_url')
+        .eq('test_id', examId)
+        .order('order', { ascending: true }); // تأكد أن عندك عمود "order" أو استعمل created_at
+
+      if (error) {
+        console.error('خطأ في تحميل الأسئلة:', error);
+      } else {
+        setQuestions(data || []);
+      }
+
+      setLoading(false);
     };
-    getSessionAndExams();
 
-     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-  }, []);
-
-  const fetchExams = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('tests')
-      .select(`id, title, duration, description, questions(id)`)
-      .eq('is_permanent', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
-    } else {
-      setExams(data);
-    }
-    setLoading(false);
-  };
+    fetchQuestions();
+  }, [examId]);
 
   return (
-    <>
-    <Header session={session} />
-    <div className="min-h-screen p-6 pt-24">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-        <Logo />
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent mb-4">اختبارات السياقة وفق التحديث الجديد</h1>
-        <p className="text-xl text-gray-300 max-w-2xl mx-auto">تحدى نفسك مع مجموعتنا من الاختبارات الثابتة في مختلف المجالات.</p>
-      </motion.div>
-
+    <div className="min-h-screen p-4 max-w-3xl mx-auto text-white">
+      <h1 className="text-2xl font-bold mb-6 text-center">فيديوهات الأسئلة</h1>
       {loading ? (
-         <div className="text-center text-white mt-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto mb-3"></div><p>جاري تحميل الاختبارات...</p></div>
-      ) : exams.length === 0 ? (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center text-gray-400 mt-10">
-          <Eye className="w-16 h-16 mx-auto mb-4 text-slate-600" /><h3 className="text-2xl font-semibold text-slate-500">لا توجد اختبارات متاحة حالياً</h3><p className="text-slate-600">يرجى العودة لاحقاً.</p>
-        </motion.div>
+        <p className="text-center">جارٍ التحميل...</p>
+      ) : questions.length === 0 ? (
+        <p className="text-center">لا توجد أسئلة بهذا الاختبار.</p>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-          <AnimatePresence>
-            {exams.map((exam, index) => (
-              <PublicExamCard key={exam.id} exam={exam} index={index} />
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <div className="space-y-6">
+          {questions.map((q, idx) => (
+            <div key={q.id}>
+              <h2 className="text-lg font-semibold mb-2">السؤال {idx + 1}</h2>
+              <div className="aspect-video">
+                <video
+                  src={q.video_url}
+                  controls
+                  className="w-full h-full rounded shadow"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
-    </>
   );
 };
 
-export default PublicExams;
+export default ExamVideos;
