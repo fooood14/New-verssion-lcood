@@ -1,4 +1,4 @@
-from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -55,4 +55,4 @@ const ExamVideos = () => {
   );
 };
 
-export default ExamVideos;     
+export default ExamVideos;
