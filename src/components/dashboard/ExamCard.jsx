@@ -11,7 +11,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-const ExamCard = ({ exam, index, onDelete, onCopyLink, onViewResults, isOwner, onStartSession }) => {
+const ExamCard = ({
+  exam,
+  index,
+  onDelete,
+  onCopyLink,
+  onViewResults,
+  isOwner,
+  onStartSession,
+  onViewLiveSession, // دالة عرض الجلسة المباشرة
+}) => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleStartSession = (withVideo) => {
@@ -115,17 +124,24 @@ const ExamCard = ({ exam, index, onDelete, onCopyLink, onViewResults, isOwner, o
               </Dialog>
             </>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                onClick={() => onViewLiveSession(exam.id)}
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Play className="w-4 h-4 ml-2" />
+                عرض الجلسة المباشرة
+              </Button>
               <Button
                 onClick={() => onViewResults(exam.id)}
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+                className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
               >
                 <BarChart2 className="w-4 h-4 ml-2" />
                 عرض النتائج
               </Button>
               <Button
                 onClick={() => onCopyLink(exam)}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Copy className="w-4 h-4 ml-2" />
                 نسخ الرابط
