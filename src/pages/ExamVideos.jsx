@@ -57,7 +57,7 @@ const ExamVideos = () => {
     const video = videoRef.current;
     const customLimit = currentQuestion?.time_limit_seconds || 15;
 
-    // تنظيف المؤقت السابق عند تغيير السؤال
+    // تنظيف المؤقت السابق
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
@@ -70,12 +70,10 @@ const ExamVideos = () => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(intervalRef.current);
-          // انتقل للسؤال التالي أو أوقف
           if (currentVideoIndex < questions.length - 1) {
             setCurrentVideoIndex(prevIndex => prevIndex + 1);
           } else {
-            // انتهى كل الفيديوهات، يمكن وضع منطق إضافي هنا
-            console.log('انتهت كل الفيديوهات');
+            console.log('✅ انتهت كل الفيديوهات');
           }
           return 0;
         }
@@ -83,15 +81,14 @@ const ExamVideos = () => {
       });
     }, 1000);
 
-    // تشغيل الفيديو عند تغيّر السؤال
+    // تشغيل الفيديو تلقائيًا
     if (video) {
       video.load();
-      video.play().catch(() => {
-        // ممكن منع الخطأ إذا لم يسمح المتصفح بالتشغيل التلقائي
+      video.play().catch(err => {
+        console.warn('⚠️ تعذر تشغيل الفيديو تلقائيًا:', err);
       });
     }
 
-    // تنظيف عند إزالة المكون أو تغيير السؤال
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
@@ -123,10 +120,12 @@ const ExamVideos = () => {
       {currentQuestion.video_url ? (
         <video
           ref={videoRef}
-          controls
+          key={currentQuestion.id}
           className="w-full rounded-lg bg-black"
           src={currentQuestion.video_url}
-          key={currentQuestion.id}
+          autoPlay
+          muted={false}
+          controls
         />
       ) : (
         <p>لا يوجد فيديو لهذا السؤال.</p>
