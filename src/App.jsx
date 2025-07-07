@@ -3,26 +3,25 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 
 const ExamVideos = () => {
-  const { examId } = useParams(); // قراءة examId من رابط الصفحة
+  const { examId } = useParams();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchQuestions = async () => {
       setLoading(true);
-      console.log("📌 examId المستلم من الرابط:", examId); // التحقق من وصول examId
+      console.log("📌 examId:", examId);
 
       const { data, error } = await supabase
         .from('questions')
-        .select('id, question_text, video_url, test_id') // أضف test_id لعرضه للتأكيد
-        // .eq('test_id', examId) // 🔧 علّق هذا السطر مؤقتًا لاختبار ظهور البيانات
+        .select('id, question_text, video_url')
+        .eq('test_id', examId) // ✅ أعِد هذا السطر
         .order('order_index', { ascending: true });
 
       if (error) {
         console.error('❌ خطأ في تحميل الأسئلة:', error.message);
       } else {
-        console.log("✅ عدد الأسئلة المحمّلة:", data.length);
-        console.table(data);
+        console.log("✅ الأسئلة:", data);
         setQuestions(data);
       }
 
@@ -41,7 +40,6 @@ const ExamVideos = () => {
       {questions.map((q, idx) => (
         <div key={q.id} className="bg-slate-800 p-4 rounded-lg">
           <h2 className="text-xl text-yellow-400 mb-2">{idx + 1}. {q.question_text}</h2>
-          <p className="text-xs text-slate-400 mb-2">🔗 test_id: {q.test_id}</p>
           {q.video_url ? (
             <video
               src={q.video_url}
