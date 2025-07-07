@@ -11,7 +11,7 @@ import LoginPage from '@/pages/LoginPage';
 import SessionResults from '@/pages/SessionResults';
 import SiteAdminPage from '@/pages/SiteAdminPage';
 import PermanentExamsPage from '@/pages/PermanentExamsPage';
-import ExamVideos from '@/pages/ExamVideos'; // ✅ استيراد الصفحة الجديدة
+import ExamVideos from '@/pages/ExamVideos'; // استيراد الصفحة الجديدة
 import { Toaster } from '@/components/ui/toaster';
 
 // المسار الخاص بالمشرف الإداري
@@ -91,7 +91,8 @@ function App() {
           <Route path="/results/:testId" element={<ProtectedRoute session={session}><SessionResults /></ProtectedRoute>} />
           <Route path="/session/:examId" element={<ExamSession />} />
           <Route path="/exam/:examId" element={<PublicExamPlayer />} />
-          <Route path="/exam-videos/:examId" element={<ExamVideos />} /> {/* ✅ المسار الجديد */}
+          <Route path="/exam-videos/:examId" element={<ExamVideos />} />
+          <Route path="/live-session/:examId" element={<ExamVideos />} /> {/* المسار المضاف */}
         </Routes>
         <Toaster />
       </div>
