@@ -9,10 +9,11 @@ const ExamVideos = () => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [started, setStarted] = useState(false); // ⬅️ بداية المشاهدة
   const videoRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // جلب بيانات الجلسة والأسئلة
+  // جلب الأسئلة
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -29,19 +30,13 @@ const ExamVideos = () => {
       }
 
       const testId = sessionData.original_test_id;
-
-      const { data: questionsData, error: questionError } = await supabase
+      const { data: questionsData } = await supabase
         .from('questions')
         .select('id, question_text, video_url, time_limit_seconds')
         .eq('test_id', testId)
         .order('order_index', { ascending: true });
 
-      if (questionError || !questionsData || questionsData.length === 0) {
-        console.warn('⚠️ لم يتم العثور على أسئلة.');
-      } else {
-        setQuestions(questionsData);
-      }
-
+      setQuestions(questionsData || []);
       setLoading(false);
       setCurrentVideoIndex(0);
     };
@@ -49,23 +44,19 @@ const ExamVideos = () => {
     fetchData();
   }, [sessionId]);
 
-  // إدارة الفيديو والمؤقت
+  // بدء تشغيل الفيديو ومتابعة المؤقت
   useEffect(() => {
-    if (!questions.length) return;
+    if (!questions.length || !started) return;
 
     const currentQuestion = questions[currentVideoIndex];
     const video = videoRef.current;
     const customLimit = currentQuestion?.time_limit_seconds || 15;
 
-    // تنظيف المؤقت السابق
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
+    if (intervalRef.current) clearInterval(intervalRef.current);
 
     setDuration(customLimit);
     setTimeLeft(customLimit);
 
-    // بدء العد التنازلي
     intervalRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -81,18 +72,15 @@ const ExamVideos = () => {
       });
     }, 1000);
 
-    // تشغيل الفيديو تلقائيًا
     if (video) {
       video.load();
       video.play().catch(err => {
-        console.warn('⚠️ تعذر تشغيل الفيديو تلقائيًا:', err);
+        console.warn('⚠️ تعذر التشغيل التلقائي:', err);
       });
     }
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [currentVideoIndex, questions]);
+    return () => clearInterval(intervalRef.current);
+  }, [currentVideoIndex, questions, started]);
 
   if (loading) {
     return (
@@ -115,25 +103,35 @@ const ExamVideos = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 flex flex-col items-center justify-center text-white max-w-3xl mx-auto">
-      <h2 className="text-xl font-bold mb-4">{currentQuestion.question_text}</h2>
-
-      {currentQuestion.video_url ? (
-        <video
-          ref={videoRef}
-          key={currentQuestion.id}
-          className="w-full rounded-lg bg-black"
-          src={currentQuestion.video_url}
-          autoPlay
-          muted={false}
-          controls
-        />
+      {!started ? (
+        <button
+          onClick={() => setStarted(true)}
+          className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-lg text-lg font-semibold"
+        >
+          ▶️ ابدأ المشاهدة
+        </button>
       ) : (
-        <p>لا يوجد فيديو لهذا السؤال.</p>
-      )}
+        <>
+          <h2 className="text-xl font-bold mb-4">{currentQuestion.question_text}</h2>
 
-      <div className="mt-4 text-center">
-        <p>الوقت المتبقي: {timeLeft} ثانية من {duration} ثانية</p>
-      </div>
+          {currentQuestion.video_url ? (
+            <video
+              ref={videoRef}
+              key={currentQuestion.id}
+              className="w-full rounded-lg bg-black"
+              src={currentQuestion.video_url}
+              autoPlay
+              controls
+            />
+          ) : (
+            <p>لا يوجد فيديو لهذا السؤال.</p>
+          )}
+
+          <div className="mt-4 text-center">
+            <p>الوقت المتبقي: {timeLeft} ثانية من {duration} ثانية</p>
+          </div>
+        </>
+      )}
     </div>
   );
 };
