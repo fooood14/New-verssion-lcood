@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 
 const ExamVideos = () => {
-  const { examId } = useParams();
+  const { sessionId } = useParams();
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -12,30 +12,45 @@ const ExamVideos = () => {
   const videoRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // تحميل الأسئلة
   useEffect(() => {
-    const fetchQuestions = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+
+      // 1. اجلب test_id من جدول الجلسات
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('exam_sessions')
+        .select('test_id')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionError || !sessionData) {
+        console.error('❌ جلسة غير صالحة:', sessionError?.message);
+        setLoading(false);
+        return;
+      }
+
+      const testId = sessionData.test_id;
+
+      // 2. اجلب الأسئلة المرتبطة بالاختبار (حتى بدون فيديو)
+      const { data: questionsData, error: questionError } = await supabase
         .from('questions')
         .select('id, question_text, video_url, time_limit_seconds')
-        .eq('test_id', examId)
+        .eq('test_id', testId)
         .order('order_index', { ascending: true });
 
-      if (error) {
-        console.error('❌ خطأ في تحميل الأسئلة:', error.message);
+      if (questionError) {
+        console.error('❌ خطأ في تحميل الأسئلة:', questionError.message);
       } else {
-        setQuestions(data);
+        setQuestions(questionsData);
       }
 
       setLoading(false);
       setCurrentVideoIndex(0);
     };
 
-    fetchQuestions();
-  }, [examId]);
+    fetchData();
+  }, [sessionId]);
 
-  // تشغيل الفيديو الحالي وضبط التوقيت
   useEffect(() => {
     if (!questions.length || !videoRef.current) return;
 
@@ -43,10 +58,11 @@ const ExamVideos = () => {
     const currentQuestion = questions[currentVideoIndex];
     const customLimit = currentQuestion?.time_limit_seconds;
 
-    // لما نحصل على مدة الفيديو، نحدد الوقت
     const handleLoadedMetadata = () => {
-      const videoDuration = video.duration;
-      const usedDuration = customLimit && customLimit > 0 ? customLimit : Math.floor(videoDuration);
+      const videoDuration = video?.duration || 0;
+      const usedDuration = customLimit && customLimit > 0
+        ? customLimit
+        : Math.floor(videoDuration || 15); // 👈 في حالة عدم وجود فيديو نضع وقت افتراضي
 
       setDuration(usedDuration);
       setTimeLeft(usedDuration);
@@ -64,15 +80,21 @@ const ExamVideos = () => {
       }, 1000);
     };
 
-    // تشغيل الفيديو تلقائيًا عند التغيير
-    video.play().catch(() => {});
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('ended', goToNextVideo);
+    if (video) {
+      video.play().catch(() => {});
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      video.addEventListener('ended', goToNextVideo);
+    } else {
+      // لا يوجد فيديو، لكن نفعل العداد يدويًا
+      handleLoadedMetadata();
+    }
 
     return () => {
       clearInterval(intervalRef.current);
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('ended', goToNextVideo);
+      if (video) {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        video.removeEventListener('ended', goToNextVideo);
+      }
     };
   }, [currentVideoIndex, questions]);
 
@@ -80,12 +102,12 @@ const ExamVideos = () => {
     if (currentVideoIndex < questions.length - 1) {
       setCurrentVideoIndex(currentVideoIndex + 1);
     } else {
-      console.log("✅ انتهت كل الفيديوهات");
+      console.log("✅ انتهت كل الأسئلة.");
     }
   };
 
   if (loading) return <p className="text-white text-center mt-10">جاري تحميل الفيديوهات...</p>;
-  if (questions.length === 0) return <p className="text-white text-center mt-10">لا توجد فيديوهات متاحة.</p>;
+  if (questions.length === 0) return <p className="text-white text-center mt-10">لا توجد أسئلة متاحة.</p>;
 
   const currentQuestion = questions[currentVideoIndex];
   const progressPercent = duration > 0 ? ((duration - timeLeft) / duration) * 100 : 0;
@@ -100,38 +122,38 @@ const ExamVideos = () => {
         <h2 className="text-xl text-yellow-400 mb-2">{currentQuestion.question_text}</h2>
 
         {currentQuestion.video_url ? (
-          <>
-            <video
-              ref={videoRef}
-              src={currentQuestion.video_url}
-              controls
-              className="w-full rounded-md"
-            />
-
-            {/* شريط التقدم */}
-            <div className="w-full bg-gray-600 h-2 rounded mt-2">
-              <div
-                className="bg-green-400 h-2 rounded"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-
-            {/* الوقت المتبقي وزر التخطي */}
-            <div className="flex justify-between items-center mt-3">
-              <p className="text-white">⏱️ الوقت المتبقي: {timeLeft} ثانية</p>
-              {currentVideoIndex < questions.length - 1 && (
-                <button
-                  onClick={goToNextVideo}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded"
-                >
-                  تخطّي للسؤال التالي ⏭️
-                </button>
-              )}
-            </div>
-          </>
+          <video
+            ref={videoRef}
+            src={currentQuestion.video_url}
+            controls
+            className="w-full rounded-md"
+          />
         ) : (
-          <p className="text-slate-400">لا يوجد فيديو لهذا السؤال.</p>
+          <div className="bg-gray-700 text-white p-4 rounded text-center">
+            لا يوجد فيديو لهذا السؤال.
+          </div>
         )}
+
+        {/* شريط التقدم */}
+        <div className="w-full bg-gray-600 h-2 rounded mt-2">
+          <div
+            className="bg-green-400 h-2 rounded"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        {/* الوقت المتبقي وزر التخطي */}
+        <div className="flex justify-between items-center mt-3">
+          <p className="text-white">⏱️ الوقت المتبقي: {timeLeft} ثانية</p>
+          {currentVideoIndex < questions.length - 1 && (
+            <button
+              onClick={goToNextVideo}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded"
+            >
+              تخطّي للسؤال التالي ⏭️
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
