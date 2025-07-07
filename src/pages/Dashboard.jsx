@@ -158,6 +158,7 @@ const Dashboard = () => {
     }
   };
 
+  // دالة إنشاء جلسة جديدة أو نسخ رابط الجلسة
   const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
     if (!user) return;
 
@@ -189,9 +190,9 @@ const Dashboard = () => {
     }
   };
 
-  // دالة عرض الجلسة المباشرة
-  const handleViewLiveSession = (examId) => {
-    navigate(`/live-session/${examId}`);
+  // دالة عرض الجلسة المباشرة: تمرير الامتحان كامل وليس فقط الـ id
+  const handleViewLiveSession = (exam) => {
+    navigate(`/live-session/${exam.id}`, { state: { exam } });
   };
 
   const handleViewResults = (examId) => {
