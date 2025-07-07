@@ -24,7 +24,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     const getUserAndExams = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Error getting user:', error);
+      }
       if (user) {
         setUser(user);
         fetchExams(user.id);
@@ -37,37 +40,102 @@ const Dashboard = () => {
 
   const fetchExams = async (userId) => {
     setLoading(true);
-    // ... (الكود نفسه لجلب الاختبارات)
-    // لم أغير هذا الجزء للحفاظ على الكود نظيف
+    try {
+      const { data: userTests, error: userTestsError } = await supabase
+        .from('tests')
+        .select('*, questions(id)')
+        .eq('user_id', userId)
+        .neq('is_permanent', true);
+
+      if (userTestsError) throw userTestsError;
+
+      const { data: permanentTests, error: permanentTestsError } = await supabase
+        .from('tests')
+        .select('*, questions(id)')
+        .eq('is_permanent', true);
+
+      if (permanentTestsError) throw permanentTestsError;
+
+      const allExams = [...(userTests || []), ...(permanentTests || [])];
+      setExams(allExams);
+      console.log('Exams loaded:', allExams);
+    } catch (error) {
+      toast({ title: 'خطأ في تحميل الاختبارات', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ... (الكود الخاص بحساب الإحصائيات، تسجيل الخروج، الدخول كمسؤول)
+  const handleDelete = async (examId) => {
+    if (!user) return;
+    const { error } = await supabase.from('tests').delete().eq('id', examId);
+    if (error) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'تم الحذف', description: 'تم حذف الاختبار بنجاح.' });
+      fetchExams(user.id);
+    }
+  };
 
   // تعديل دالة عرض الجلسة المباشرة:
   const handleViewLiveSession = (exam) => {
     navigate(`/session/${exam.id}`, { state: { skipRegistration: true, exam } });
   };
 
-  // دوال أخرى...
+  const handleCreateSessionOrCopyLink = async (exam) => {
+    // منطق إنشاء جلسة أو نسخ الرابط حسب الحاجة
+  };
+
+  const handleViewResults = (examId) => {
+    navigate(`/results/${examId}`);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
-      {/* ... رأس الصفحة */}
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">لوحة التحكم</h1>
+          <p className="text-sm sm:text-base text-slate-400">مرحباً بعودتك، {user?.email}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setShowAdminLogin(true)} className="text-slate-300 hover:bg-slate-700 hover:text-yellow-400">
+            <Shield className="h-6 w-6" />
+          </Button>
+          <Button onClick={handleSignOut} variant="outline" className="text-slate-300 border-slate-600 hover:bg-slate-700">
+            <LogOut className="w-4 h-4 ml-2" />
+            تسجيل الخروج
+          </Button>
+        </div>
+      </header>
+
       <Logo />
 
       <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        {/* هنا لو تحب تعرض إحصائيات */}
         <DashboardStats stats={stats} />
 
-        {/* ... العنوان وزر إنشاء اختبار */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white">اختباراتك</h2>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          >
+            <Plus className="w-4 h-4 ml-2" />
+            إنشاء اختبار جديد
+          </Button>
+        </div>
 
         {loading ? (
-          // ... تحميل
           <div className="text-center text-white mt-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-3"></div>
             <p>جاري تحميل الاختبارات...</p>
           </div>
         ) : exams.length === 0 ? (
-          // ... لا توجد اختبارات
           <div className="text-center py-12 sm:py-16 bg-slate-800/50 rounded-lg border border-dashed border-slate-700">
             <h3 className="text-lg sm:text-xl font-semibold text-white">لم تقم بإنشاء أي اختبارات بعد</h3>
             <p className="text-slate-400 mt-2 mb-4">انقر على "إنشاء اختبار جديد" للبدء.</p>
@@ -84,7 +152,7 @@ const Dashboard = () => {
                 onCopyLink={handleCreateSessionOrCopyLink}
                 onViewResults={handleViewResults}
                 onStartSession={handleCreateSessionOrCopyLink}
-                onViewLiveSession={handleViewLiveSession} // تمرير الدالة المعدلة هنا
+                onViewLiveSession={handleViewLiveSession}
               />
             ))}
           </div>
@@ -93,7 +161,7 @@ const Dashboard = () => {
 
       <AnimatePresence>
         {showCreateDialog && (
-          <ExamForm onExamCreated={handleExamCreated} onCancel={() => setShowCreateDialog(false)} userId={user?.id} />
+          <ExamForm onExamCreated={() => { setShowCreateDialog(false); if (user) fetchExams(user.id); }} onCancel={() => setShowCreateDialog(false)} userId={user?.id} />
         )}
       </AnimatePresence>
 
