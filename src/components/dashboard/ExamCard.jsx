@@ -58,6 +58,7 @@ const Dashboard = () => {
 
       const allExams = [...(userTests || []), ...(permanentTests || [])];
       setExams(allExams);
+      console.log('Exams loaded:', allExams);
     } catch (error) {
       toast({ title: 'خطأ في تحميل الاختبارات', description: error.message, variant: 'destructive' });
     } finally {
@@ -76,41 +77,13 @@ const Dashboard = () => {
     }
   };
 
+  // تعديل دالة عرض الجلسة المباشرة:
   const handleViewLiveSession = (exam) => {
     navigate(`/session/${exam.id}`, { state: { skipRegistration: true, exam } });
   };
 
-  // ✅ دالة إنشاء الجلسة الجديدة بالفيديو أو بدونه
-  const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
-    try {
-      const { data, error } = await supabase
-        .from('exam_sessions')
-        .insert([
-          {
-            original_test_id: exam.id,
-            type: withVideo ? 'video' : 'no-video',
-            created_at: new Date(),
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      navigate(`/session/${data.id}`, {
-        state: {
-          skipRegistration: true,
-          exam,
-        },
-      });
-    } catch (err) {
-      console.error('خطأ في إنشاء الجلسة:', err.message);
-      toast({
-        title: 'خطأ في إنشاء الجلسة',
-        description: err.message,
-        variant: 'destructive',
-      });
-    }
+  const handleCreateSessionOrCopyLink = async (exam) => {
+    // منطق إنشاء جلسة أو نسخ الرابط حسب الحاجة
   };
 
   const handleViewResults = (examId) => {
@@ -143,6 +116,7 @@ const Dashboard = () => {
       <Logo />
 
       <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        {/* هنا لو تحب تعرض إحصائيات */}
         <DashboardStats stats={stats} />
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
@@ -177,7 +151,7 @@ const Dashboard = () => {
                 onDelete={handleDelete}
                 onCopyLink={handleCreateSessionOrCopyLink}
                 onViewResults={handleViewResults}
-                onStartSession={handleCreateSessionOrCopyLink} // ✅ مهم
+                onStartSession={handleCreateSessionOrCopyLink}
                 onViewLiveSession={handleViewLiveSession}
               />
             ))}
