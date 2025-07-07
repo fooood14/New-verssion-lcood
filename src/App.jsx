@@ -11,10 +11,10 @@ import LoginPage from '@/pages/LoginPage';
 import SessionResults from '@/pages/SessionResults';
 import SiteAdminPage from '@/pages/SiteAdminPage';
 import PermanentExamsPage from '@/pages/PermanentExamsPage';
-import ExamVideos from '@/pages/ExamVideos'; // استيراد الصفحة الجديدة
+import ExamVideos from '@/pages/ExamVideos'; // ✅ استيراد الصفحة الجديدة
 import { Toaster } from '@/components/ui/toaster';
 
-// المسار الخاص بالمشرف الإداري
+// ✅ المسار الخاص بالمشرف الإداري
 const AdminRoute = ({ children, session }) => {
   const isAdmin = sessionStorage.getItem('isAdminAccess') === 'true';
   if (!session) return <Navigate to="/login" />;
@@ -22,7 +22,7 @@ const AdminRoute = ({ children, session }) => {
   return children;
 };
 
-// مسار محمي للمستخدمين المسجلين
+// ✅ مسار محمي للمستخدمين المسجلين
 const ProtectedRoute = ({ children, session }) => {
   if (!session) {
     return <Navigate to="/login" />;
@@ -30,7 +30,7 @@ const ProtectedRoute = ({ children, session }) => {
   return children;
 };
 
-// مسار المشرف العام
+// ✅ مسار المشرف العام
 const SiteAdminRoute = ({ children }) => {
   const isSiteAdmin = sessionStorage.getItem('isSiteAdminAccess') === 'true';
   if (!isSiteAdmin) {
@@ -80,20 +80,31 @@ function App() {
         <title>منصة الاختبارات التفاعلية</title>
         <meta name="description" content="نظام متطور لإنشاء وإدارة الاختبارات الثابتة والجلسات المباشرة مع تجميع النتائج." />
       </Helmet>
+
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900">
         <Routes>
+          {/* ✅ صفحة الدخول */}
           <Route path="/login" element={session ? <Navigate to="/permanent-exams" /> : <LoginPage />} />
           <Route path="/" element={session ? <Navigate to="/permanent-exams" /> : <Navigate to="/login" />} />
+
+          {/* ✅ صفحات المستخدم */}
           <Route path="/permanent-exams" element={<ProtectedRoute session={session}><PermanentExamsPage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute session={session}><Dashboard /></ProtectedRoute>} />
+          <Route path="/results/:testId" element={<ProtectedRoute session={session}><SessionResults /></ProtectedRoute>} />
+
+          {/* ✅ صفحات المشرف */}
           <Route path="/admin" element={<AdminRoute session={session}><AdminDashboard /></AdminRoute>} />
           <Route path="/site-admin" element={<SiteAdminRoute><SiteAdminPage /></SiteAdminRoute>} />
-          <Route path="/results/:testId" element={<ProtectedRoute session={session}><SessionResults /></ProtectedRoute>} />
+
+          {/* ✅ صفحات الامتحان */}
           <Route path="/session/:examId" element={<ExamSession />} />
           <Route path="/exam/:examId" element={<PublicExamPlayer />} />
           <Route path="/exam-videos/:examId" element={<ExamVideos />} />
-          <Route path="/live-session/:examId" element={<ExamVideos />} /> {/* المسار المضاف */}
+
+          {/* ✅ المسار الجديد للجلسات المباشرة بالفيديوهات */}
+          <Route path="/live-session/:sessionId" element={<ExamVideos />} />
         </Routes>
+
         <Toaster />
       </div>
     </>
