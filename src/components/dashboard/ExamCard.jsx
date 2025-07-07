@@ -19,7 +19,7 @@ const ExamCard = ({
   onViewResults,
   isOwner,
   onStartSession,
-  onViewLiveSession, // دالة عرض الجلسة المباشرة
+  onViewLiveSession,
 }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -37,7 +37,11 @@ const ExamCard = ({
       transition={{ delay: index * 0.1 }}
       whileHover={{ y: -5 }}
     >
-      <Card className={p-6 bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 backdrop-blur-sm hover:border-yellow-500/50 transition-all duration-300 flex flex-col h-full ${exam.is_permanent ? 'border-yellow-500/30' : ''}}>
+      <Card
+        className={`p-6 bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 backdrop-blur-sm hover:border-yellow-500/50 transition-all duration-300 flex flex-col h-full ${
+          exam.is_permanent ? 'border-yellow-500/30' : ''
+        }`}
+      >
         {exam.image_url && (
           <div className="mb-4 rounded-lg overflow-hidden">
             <img
@@ -113,10 +117,17 @@ const ExamCard = ({
                     هل ترغب في عرض فيديوهات الأسئلة أثناء الجلسة؟
                   </p>
                   <DialogFooter className="flex flex-col sm:flex-row justify-end gap-2">
-                    <Button onClick={() => handleStartSession(false)} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                    <Button
+                      onClick={() => handleStartSession(false)}
+                      variant="outline"
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
                       بدون فيديو
                     </Button>
-                    <Button onClick={() => handleStartSession(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                    <Button
+                      onClick={() => handleStartSession(true)}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    >
                       بالفيديو
                     </Button>
                   </DialogFooter>
