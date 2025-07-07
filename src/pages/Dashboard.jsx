@@ -189,6 +189,11 @@ const Dashboard = () => {
     }
   };
 
+  // دالة عرض الجلسة المباشرة
+  const handleViewLiveSession = (examId) => {
+    navigate(`/live-session/${examId}`);
+  };
+
   const handleViewResults = (examId) => {
     navigate(`/results/${examId}`);
   };
@@ -249,6 +254,7 @@ const Dashboard = () => {
                 onCopyLink={handleCreateSessionOrCopyLink}
                 onViewResults={handleViewResults}
                 onStartSession={handleCreateSessionOrCopyLink}
+                onViewLiveSession={handleViewLiveSession} // تمرير الدالة هنا
               />
             ))}
           </div>
