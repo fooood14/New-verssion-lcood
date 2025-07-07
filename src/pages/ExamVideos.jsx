@@ -12,7 +12,7 @@ const ExamVideos = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('questions')
-        .select('id, title, video_url')
+        .select('id, question_text, video_url')
         .eq('test_id', examId)
         .order('order', { ascending: true });
 
@@ -35,7 +35,7 @@ const ExamVideos = () => {
       <h1 className="text-3xl text-white mb-6">فيديوهات الأسئلة</h1>
       {questions.map((q, idx) => (
         <div key={q.id} className="bg-slate-800 p-4 rounded-lg">
-          <h2 className="text-xl text-yellow-400 mb-2">{idx + 1}. {q.title}</h2>
+          <h2 className="text-xl text-yellow-400 mb-2">{idx + 1}. {q.question_text}</h2>
           {q.video_url ? (
             <video
               src={q.video_url}
