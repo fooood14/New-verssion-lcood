@@ -126,7 +126,7 @@ const ExamCard = ({
           ) : (
             <div className="flex gap-2 flex-wrap">
               <Button
-                onClick={() => onViewLiveSession(exam.id)}
+                onClick={() => onViewLiveSession(exam)}
                 className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
               >
                 <Play className="w-4 h-4 ml-2" />
