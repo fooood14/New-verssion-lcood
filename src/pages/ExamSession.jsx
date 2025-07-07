@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,6 +27,9 @@ const isCorrect = (userAnswers, correctAnswers, question) => {
 const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation(); // استيراد الموقع
+  const skipRegistration = location.state?.skipRegistration || false; // قراءة الحالة
+
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
   const [studentInfo, setStudentInfo] = useState({ name: '', phone: '', email: '' });
@@ -86,6 +89,35 @@ const ExamSession = () => {
       setExam(formattedExam);
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
+
+      // إذا جاء الطلب بتخطي التسجيل
+      if (skipRegistration) {
+        // إعداد بيانات مؤقتة للمشارك
+        const tempInfo = { name: 'مشارك مباشر', phone: '', email: '' };
+        setStudentInfo(tempInfo);
+
+        // إنشاء مشارك مؤقت في قاعدة البيانات
+        const participantData = data.is_restricted_by_email
+          ? { session_id: examId, email: tempInfo.email.trim().toLowerCase(), session_user_id: data.user_id }
+          : { session_id: examId, name: tempInfo.name, phone_number: tempInfo.phone, session_user_id: data.user_id };
+
+        const { data: participant, error: participantError } = await supabase
+          .from('session_participants')
+          .insert([participantData])
+          .select('id')
+          .single();
+
+        if (participantError || !participant) {
+          toast({ title: "خطأ", description: `فشل في تسجيل المشارك: ${participantError?.message}`, variant: "destructive" });
+          navigate('/');
+          return;
+        }
+
+        setParticipantId(participant.id);
+        setExamStartTime(Date.now());
+        setCurrentStep('exam');
+        toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+      }
     };
 
     if (examId) fetchExamDetails();
@@ -93,7 +125,7 @@ const ExamSession = () => {
       toast({ title: "خطأ", description: "معرف الجلسة مفقود", variant: "destructive" });
       navigate('/');
     }
-  }, [examId, navigate]);
+  }, [examId, navigate, skipRegistration]);
 
   useEffect(() => {
     let timer;
