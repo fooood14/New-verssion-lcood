@@ -142,7 +142,7 @@ const Dashboard = () => {
       const { data: session, error } = await supabase
         .from('tests')
         .insert({
-          title: ${exam.title} - جلسة مباشرة,
+          title: `${exam.title} - جلسة مباشرة`,
           duration: exam.duration,
           user_id: user.id,
           is_permanent: false,
@@ -185,23 +185,23 @@ const Dashboard = () => {
       toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن للجلسة.' });
 
       setTimeout(() => {
-        navigate(/session/${session.id}, {
+        navigate(`/session/${session.id}`, {
           state: { skipRegistration: true }
         });
       }, 500);
     } else {
-      const link = ${window.location.origin}/session/${exam.id};
+      const link = `${window.location.origin}/session/${exam.id}`;
       navigator.clipboard.writeText(link);
       toast({ title: 'تم نسخ الرابط', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
     }
   };
 
   const handleViewLiveSession = (exam) => {
-    navigate(/live-session/${exam.id}, { state: { exam } });
+    navigate(`/live-session/${exam.id}`, { state: { exam } });
   };
 
   const handleViewResults = (examId) => {
-    navigate(/results/${examId});
+    navigate(`/results/${examId}`);
   };
 
   return (
@@ -277,4 +277,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;  
+export default Dashboard;
