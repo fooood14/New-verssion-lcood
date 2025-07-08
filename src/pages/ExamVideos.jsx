@@ -9,11 +9,10 @@ const ExamVideos = () => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [started, setStarted] = useState(false); // ⬅️ بداية المشاهدة
   const videoRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // جلب الأسئلة
+  // جلب بيانات الجلسة والأسئلة
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -30,13 +29,19 @@ const ExamVideos = () => {
       }
 
       const testId = sessionData.original_test_id;
-      const { data: questionsData } = await supabase
+
+      const { data: questionsData, error: questionError } = await supabase
         .from('questions')
         .select('id, question_text, video_url, time_limit_seconds')
         .eq('test_id', testId)
         .order('order_index', { ascending: true });
 
-      setQuestions(questionsData || []);
+      if (questionError || !questionsData || questionsData.length === 0) {
+        console.warn('⚠️ لم يتم العثور على أسئلة.');
+      } else {
+        setQuestions(questionsData);
+      }
+
       setLoading(false);
       setCurrentVideoIndex(0);
     };
@@ -44,27 +49,33 @@ const ExamVideos = () => {
     fetchData();
   }, [sessionId]);
 
-  // بدء تشغيل الفيديو ومتابعة المؤقت
+  // إدارة الفيديو والمؤقت
   useEffect(() => {
-    if (!questions.length || !started) return;
+    if (!questions.length) return;
 
     const currentQuestion = questions[currentVideoIndex];
     const video = videoRef.current;
     const customLimit = currentQuestion?.time_limit_seconds || 15;
 
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    // تنظيف المؤقت السابق عند تغيير السؤال
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
 
     setDuration(customLimit);
     setTimeLeft(customLimit);
 
+    // بدء العد التنازلي
     intervalRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(intervalRef.current);
+          // انتقل للسؤال التالي أو أوقف
           if (currentVideoIndex < questions.length - 1) {
             setCurrentVideoIndex(prevIndex => prevIndex + 1);
           } else {
-            console.log('✅ انتهت كل الفيديوهات');
+            // انتهى كل الفيديوهات، يمكن وضع منطق إضافي هنا
+            console.log('انتهت كل الفيديوهات');
           }
           return 0;
         }
@@ -72,15 +83,19 @@ const ExamVideos = () => {
       });
     }, 1000);
 
+    // تشغيل الفيديو عند تغيّر السؤال
     if (video) {
       video.load();
-      video.play().catch(err => {
-        console.warn('⚠️ تعذر التشغيل التلقائي:', err);
+      video.play().catch(() => {
+        // ممكن منع الخطأ إذا لم يسمح المتصفح بالتشغيل التلقائي
       });
     }
 
-    return () => clearInterval(intervalRef.current);
-  }, [currentVideoIndex, questions, started]);
+    // تنظيف عند إزالة المكون أو تغيير السؤال
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [currentVideoIndex, questions]);
 
   if (loading) {
     return (
@@ -103,35 +118,23 @@ const ExamVideos = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 flex flex-col items-center justify-center text-white max-w-3xl mx-auto">
-      {!started ? (
-        <button
-          onClick={() => setStarted(true)}
-          className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-lg text-lg font-semibold"
-        >
-          ▶️ ابدأ المشاهدة
-        </button>
+      <h2 className="text-xl font-bold mb-4">{currentQuestion.question_text}</h2>
+
+      {currentQuestion.video_url ? (
+        <video
+          ref={videoRef}
+          controls
+          className="w-full rounded-lg bg-black"
+          src={currentQuestion.video_url}
+          key={currentQuestion.id}
+        />
       ) : (
-        <>
-          <h2 className="text-xl font-bold mb-4">{currentQuestion.question_text}</h2>
-
-          {currentQuestion.video_url ? (
-            <video
-              ref={videoRef}
-              key={currentQuestion.id}
-              className="w-full rounded-lg bg-black"
-              src={currentQuestion.video_url}
-              autoPlay
-              controls
-            />
-          ) : (
-            <p>لا يوجد فيديو لهذا السؤال.</p>
-          )}
-
-          <div className="mt-4 text-center">
-            <p>الوقت المتبقي: {timeLeft} ثانية من {duration} ثانية</p>
-          </div>
-        </>
+        <p>لا يوجد فيديو لهذا السؤال.</p>
       )}
+
+      <div className="mt-4 text-center">
+        <p>الوقت المتبقي: {timeLeft} ثانية من {duration} ثانية</p>
+      </div>
     </div>
   );
 };
