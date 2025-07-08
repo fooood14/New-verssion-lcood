@@ -66,36 +66,6 @@ const Dashboard = () => {
     }
   };
 
-  // دالة لإنشاء جلسة مباشرة مع خيار الفيديو أو نسخ رابط
-  const handleCreateSessionOrCopyLink = async (exam, withVideo) => {
-    if (!user) return;
-
-    try {
-      const { data: session, error } = await supabase
-        .from('sessions')
-        .insert({
-          test_id: exam.id,
-          user_id: user.id,
-          with_video: withVideo,
-          started_at: new Date(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // التوجه لصفحة الجلسة المباشرة مع المعطيات
-      navigate(`/session/${session.id}`, { state: { exam, withVideo } });
-
-    } catch (error) {
-      toast({
-        title: 'خطأ أثناء إنشاء الجلسة',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
-  };
-
   const handleDelete = async (examId) => {
     if (!user) return;
     const { error } = await supabase.from('tests').delete().eq('id', examId);
@@ -107,9 +77,13 @@ const Dashboard = () => {
     }
   };
 
-  // عرض الجلسة المباشرة (توجيه فقط)
+  // تعديل دالة عرض الجلسة المباشرة:
   const handleViewLiveSession = (exam) => {
     navigate(`/session/${exam.id}`, { state: { skipRegistration: true, exam } });
+  };
+
+  const handleCreateSessionOrCopyLink = async (exam) => {
+    // منطق إنشاء جلسة أو نسخ الرابط حسب الحاجة
   };
 
   const handleViewResults = (examId) => {
@@ -142,6 +116,7 @@ const Dashboard = () => {
       <Logo />
 
       <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        {/* هنا لو تحب تعرض إحصائيات */}
         <DashboardStats stats={stats} />
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
@@ -174,9 +149,9 @@ const Dashboard = () => {
                 index={index}
                 isOwner={exam.user_id === user?.id}
                 onDelete={handleDelete}
-                onCopyLink={handleCreateSessionOrCopyLink}  // هنا رابط نسخ أو إنشاء جلسة
+                onCopyLink={handleCreateSessionOrCopyLink}
                 onViewResults={handleViewResults}
-                onStartSession={handleCreateSessionOrCopyLink} // إنشاء الجلسة مباشرة
+                onStartSession={handleCreateSessionOrCopyLink}
                 onViewLiveSession={handleViewLiveSession}
               />
             ))}
@@ -186,14 +161,7 @@ const Dashboard = () => {
 
       <AnimatePresence>
         {showCreateDialog && (
-          <ExamForm
-            onExamCreated={() => {
-              setShowCreateDialog(false);
-              if (user) fetchExams(user.id);
-            }}
-            onCancel={() => setShowCreateDialog(false)}
-            userId={user?.id}
-          />
+          <ExamForm onExamCreated={() => { setShowCreateDialog(false); if (user) fetchExams(user.id); }} onCancel={() => setShowCreateDialog(false)} userId={user?.id} />
         )}
       </AnimatePresence>
 
