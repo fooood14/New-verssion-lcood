@@ -37,24 +37,16 @@ const Dashboard = () => {
 
   const fetchExams = async (userId) => {
     setLoading(true);
-    const { data: userTests, error: userTestsError } = await supabase
+    const { data: userTests } = await supabase
       .from('tests')
       .select('*, questions(id)')
       .eq('user_id', userId)
       .neq('is_permanent', true);
 
-    if (userTestsError) {
-      toast({ title: 'خطأ في تحميل اختباراتك', description: userTestsError.message, variant: 'destructive' });
-    }
-
-    const { data: permanentTests, error: permanentTestsError } = await supabase
+    const { data: permanentTests } = await supabase
       .from('tests')
       .select('*, questions(id)')
       .eq('is_permanent', true);
-
-    if (permanentTestsError) {
-      toast({ title: 'خطأ في تحميل الاختبارات الثابتة', description: permanentTestsError.message, variant: 'destructive' });
-    }
 
     const allExams = [...(userTests || []), ...(permanentTests || [])];
     const uniqueExams = Array.from(new Map(allExams.map(exam => [exam.id, exam])).values());
@@ -68,15 +60,13 @@ const Dashboard = () => {
           .select('id')
           .eq('original_test_id', exam.id);
 
-        if (sessionTests && sessionTests.length > 0) {
-          const sessionIds = sessionTests.map(t => t.id);
-          const { data: results } = await supabase
-            .from('test_results')
-            .select('participant_id')
-            .in('test_id', sessionIds);
+        const sessionIds = sessionTests?.map(t => t.id) || [];
+        const { data: results } = await supabase
+          .from('test_results')
+          .select('participant_id')
+          .in('test_id', sessionIds);
 
-          participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
-        }
+        participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
       } else {
         const { data: results } = await supabase
           .from('test_results')
@@ -101,33 +91,23 @@ const Dashboard = () => {
 
     let allSessionTestIds = [];
     if (permanentTestIds.length > 0) {
-      const { data: sessionTests } = await supabase.from('tests').select('id').in('original_test_id', permanentTestIds).eq('user_id', userId);
-      if (sessionTests) {
-        allSessionTestIds = sessionTests.map(t => t.id);
-      }
+      const { data: sessionTests } = await supabase.from('tests')
+        .select('id')
+        .in('original_test_id', permanentTestIds)
+        .eq('user_id', userId);
+      allSessionTestIds = sessionTests?.map(t => t.id) || [];
     }
 
     const relevantTestIds = [...new Set([...userExamIds, ...allSessionTestIds])];
 
-    if (relevantTestIds.length === 0) {
-      setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
-      return;
-    }
-
-    const { data: results, error } = await supabase
+    const { data: results } = await supabase
       .from('test_results')
       .select('percentage, participant_id')
       .in('test_id', relevantTestIds);
 
-    if (error) {
-      console.error("Error fetching results for stats:", error);
-      setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
-      return;
-    }
-
     const totalParticipants = results ? new Set(results.map(r => r.participant_id)).size : 0;
-    const totalScore = results ? results.reduce((acc, r) => acc + r.percentage, 0) : 0;
-    const averageScore = results && results.length > 0 ? Math.round(totalScore / results.length) : 0;
+    const totalScore = results?.reduce((acc, r) => acc + r.percentage, 0) || 0;
+    const averageScore = results?.length ? Math.round(totalScore / results.length) : 0;
 
     setStats({ totalTests: allExams.length, totalParticipants, averageScore });
   };
@@ -138,9 +118,7 @@ const Dashboard = () => {
     navigate('/login');
   };
 
-  const handleAdminAccess = () => {
-    setShowAdminLogin(true);
-  };
+  const handleAdminAccess = () => setShowAdminLogin(true);
 
   const handleExamCreated = () => {
     setShowCreateDialog(false);
@@ -148,7 +126,6 @@ const Dashboard = () => {
   };
 
   const handleDelete = async (examId) => {
-    if (!user) return;
     const { error } = await supabase.from('tests').delete().eq('id', examId);
     if (error) {
       toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
@@ -158,61 +135,64 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ دالة منقحة لإنشاء جلسة مباشرة فعلية
   const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
     if (!user) return;
 
-    try {
-      let sessionTestId = exam.id;
-
-      // إذا كان الاختبار دائمًا، أنشئ نسخة مؤقتة
-      if (exam.is_permanent) {
-        const { data: newSessionTest, error } = await supabase
-          .from('tests')
-          .insert({
-            title: `${exam.title} - جلسة مباشرة`,
-            duration: exam.duration,
-            user_id: user.id,
-            is_permanent: false,
-            original_test_id: exam.id,
-            with_video: withVideo
-          })
-          .select('id')
-          .single();
-
-        if (error) {
-          toast({ title: 'خطأ في إنشاء نسخة الجلسة', description: error.message, variant: 'destructive' });
-          return;
-        }
-
-        sessionTestId = newSessionTest.id;
-      }
-
-      // إنشاء الجلسة المباشرة فعليًا
-      const { data: session, error: sessionError } = await supabase
-        .from('sessions')
+    if (exam.is_permanent) {
+      const { data: session, error } = await supabase
+        .from('tests')
         .insert({
-          test_id: sessionTestId,
+          title: `${exam.title} - جلسة مباشرة`,
+          duration: exam.duration,
           user_id: user.id,
-          with_video: withVideo,
-          started_at: new Date(),
+          is_permanent: false,
+          original_test_id: exam.id,
+          with_video: withVideo
         })
         .select()
         .single();
 
-      if (sessionError) {
-        toast({ title: 'خطأ في إنشاء الجلسة', description: sessionError.message, variant: 'destructive' });
+      if (error) {
+        toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
         return;
       }
 
-      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن لشاشة الجلسة.' });
+      // نسخ الأسئلة
+      const { data: originalQuestions, error: fetchError } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('test_id', exam.id);
 
-      navigate(`/session/${session.id}`, {
-        state: { exam: { ...exam, id: sessionTestId }, withVideo }
+      if (fetchError) {
+        toast({ title: 'فشل تحميل الأسئلة', description: fetchError.message, variant: 'destructive' });
+        return;
+      }
+
+      const clonedQuestions = originalQuestions.map(q => {
+        const { id, ...rest } = q;
+        return { ...rest, test_id: session.id };
       });
 
-    } catch (err) {
-      toast({ title: 'حدث خطأ غير متوقع', description: err.message, variant: 'destructive' });
+      const { error: insertError } = await supabase
+        .from('questions')
+        .insert(clonedQuestions);
+
+      if (insertError) {
+        toast({ title: 'فشل نسخ الأسئلة', description: insertError.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن للجلسة.' });
+
+      setTimeout(() => {
+        navigate(`/session/${session.id}`, {
+          state: { skipRegistration: true }
+        });
+      }, 500);
+    } else {
+      const link = `${window.location.origin}/session/${exam.id}`;
+      navigator.clipboard.writeText(link);
+      toast({ title: 'تم نسخ الرابط', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
     }
   };
 
@@ -246,7 +226,6 @@ const Dashboard = () => {
 
       <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <DashboardStats stats={stats} />
-
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
           <h2 className="text-xl sm:text-2xl font-semibold text-white">اختباراتك</h2>
           <Button
