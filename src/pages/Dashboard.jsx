@@ -24,10 +24,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const getUserAndExams = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) {
-        console.error('Error getting user:', error);
-      }
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
         fetchExams(user.id);
@@ -40,30 +37,114 @@ const Dashboard = () => {
 
   const fetchExams = async (userId) => {
     setLoading(true);
-    try {
-      const { data: userTests, error: userTestsError } = await supabase
-        .from('tests')
-        .select('*, questions(id)')
-        .eq('user_id', userId)
-        .neq('is_permanent', true);
+    const { data: userTests, error: userTestsError } = await supabase
+      .from('tests')
+      .select('*, questions(id)')
+      .eq('user_id', userId)
+      .neq('is_permanent', true);
 
-      if (userTestsError) throw userTestsError;
-
-      const { data: permanentTests, error: permanentTestsError } = await supabase
-        .from('tests')
-        .select('*, questions(id)')
-        .eq('is_permanent', true);
-
-      if (permanentTestsError) throw permanentTestsError;
-
-      const allExams = [...(userTests || []), ...(permanentTests || [])];
-      setExams(allExams);
-      console.log('Exams loaded:', allExams);
-    } catch (error) {
-      toast({ title: 'خطأ في تحميل الاختبارات', description: error.message, variant: 'destructive' });
-    } finally {
-      setLoading(false);
+    if (userTestsError) {
+      toast({ title: 'خطأ في تحميل اختباراتك', description: userTestsError.message, variant: 'destructive' });
     }
+
+    const { data: permanentTests, error: permanentTestsError } = await supabase
+      .from('tests')
+      .select('*, questions(id)')
+      .eq('is_permanent', true);
+
+    if (permanentTestsError) {
+      toast({ title: 'خطأ في تحميل الاختبارات الثابتة', description: permanentTestsError.message, variant: 'destructive' });
+    }
+
+    const allExams = [...(userTests || []), ...(permanentTests || [])];
+    const uniqueExams = Array.from(new Map(allExams.map(exam => [exam.id, exam])).values());
+
+    const examsWithParticipants = await Promise.all(uniqueExams.map(async (exam) => {
+      let participantsCount = 0;
+
+      if (exam.is_permanent) {
+        const { data: sessionTests } = await supabase
+          .from('tests')
+          .select('id')
+          .eq('original_test_id', exam.id);
+
+        if (sessionTests && sessionTests.length > 0) {
+          const sessionIds = sessionTests.map(t => t.id);
+          const { data: results } = await supabase
+            .from('test_results')
+            .select('participant_id')
+            .in('test_id', sessionIds);
+
+          participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
+        }
+      } else {
+        const { data: results } = await supabase
+          .from('test_results')
+          .select('participant_id')
+          .eq('test_id', exam.id);
+
+        participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
+      }
+
+      return { ...exam, participantsCount };
+    }));
+
+    const sortedExams = examsWithParticipants.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    setExams(sortedExams);
+    await calculateStats(sortedExams, userId);
+    setLoading(false);
+  };
+
+  const calculateStats = async (allExams, userId) => {
+    const userExamIds = allExams.filter(e => e.user_id === userId && !e.is_permanent).map(e => e.id);
+    const permanentTestIds = allExams.filter(e => e.is_permanent).map(e => e.id);
+
+    let allSessionTestIds = [];
+    if (permanentTestIds.length > 0) {
+      const { data: sessionTests } = await supabase.from('tests').select('id').in('original_test_id', permanentTestIds).eq('user_id', userId);
+      if (sessionTests) {
+        allSessionTestIds = sessionTests.map(t => t.id);
+      }
+    }
+
+    const relevantTestIds = [...new Set([...userExamIds, ...allSessionTestIds])];
+
+    if (relevantTestIds.length === 0) {
+      setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
+      return;
+    }
+
+    const { data: results, error } = await supabase
+      .from('test_results')
+      .select('percentage, participant_id')
+      .in('test_id', relevantTestIds);
+
+    if (error) {
+      console.error("Error fetching results for stats:", error);
+      setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
+      return;
+    }
+
+    const totalParticipants = results ? new Set(results.map(r => r.participant_id)).size : 0;
+    const totalScore = results ? results.reduce((acc, r) => acc + r.percentage, 0) : 0;
+    const averageScore = results && results.length > 0 ? Math.round(totalScore / results.length) : 0;
+
+    setStats({ totalTests: allExams.length, totalParticipants, averageScore });
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    sessionStorage.removeItem('isAdminAccess');
+    navigate('/login');
+  };
+
+  const handleAdminAccess = () => {
+    setShowAdminLogin(true);
+  };
+
+  const handleExamCreated = () => {
+    setShowCreateDialog(false);
+    if (user) fetchExams(user.id);
   };
 
   const handleDelete = async (examId) => {
@@ -77,22 +158,70 @@ const Dashboard = () => {
     }
   };
 
-  // تعديل دالة عرض الجلسة المباشرة:
-  const handleViewLiveSession = (exam) => {
-    navigate(`/session/${exam.id}`, { state: { skipRegistration: true, exam } });
+  // ✅ دالة منقحة لإنشاء جلسة مباشرة فعلية
+  const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
+    if (!user) return;
+
+    try {
+      let sessionTestId = exam.id;
+
+      // إذا كان الاختبار دائمًا، أنشئ نسخة مؤقتة
+      if (exam.is_permanent) {
+        const { data: newSessionTest, error } = await supabase
+          .from('tests')
+          .insert({
+            title: `${exam.title} - جلسة مباشرة`,
+            duration: exam.duration,
+            user_id: user.id,
+            is_permanent: false,
+            original_test_id: exam.id,
+            with_video: withVideo
+          })
+          .select('id')
+          .single();
+
+        if (error) {
+          toast({ title: 'خطأ في إنشاء نسخة الجلسة', description: error.message, variant: 'destructive' });
+          return;
+        }
+
+        sessionTestId = newSessionTest.id;
+      }
+
+      // إنشاء الجلسة المباشرة فعليًا
+      const { data: session, error: sessionError } = await supabase
+        .from('sessions')
+        .insert({
+          test_id: sessionTestId,
+          user_id: user.id,
+          with_video: withVideo,
+          started_at: new Date(),
+        })
+        .select()
+        .single();
+
+      if (sessionError) {
+        toast({ title: 'خطأ في إنشاء الجلسة', description: sessionError.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن لشاشة الجلسة.' });
+
+      navigate(`/session/${session.id}`, {
+        state: { exam: { ...exam, id: sessionTestId }, withVideo }
+      });
+
+    } catch (err) {
+      toast({ title: 'حدث خطأ غير متوقع', description: err.message, variant: 'destructive' });
+    }
   };
 
-  const handleCreateSessionOrCopyLink = async (exam) => {
-    // منطق إنشاء جلسة أو نسخ الرابط حسب الحاجة
+  const handleViewLiveSession = (exam) => {
+    navigate(`/live-session/${exam.id}`, { state: { exam } });
   };
 
   const handleViewResults = (examId) => {
     navigate(`/results/${examId}`);
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
   };
 
   return (
@@ -103,7 +232,7 @@ const Dashboard = () => {
           <p className="text-sm sm:text-base text-slate-400">مرحباً بعودتك، {user?.email}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setShowAdminLogin(true)} className="text-slate-300 hover:bg-slate-700 hover:text-yellow-400">
+          <Button variant="ghost" size="icon" onClick={handleAdminAccess} className="text-slate-300 hover:bg-slate-700 hover:text-yellow-400">
             <Shield className="h-6 w-6" />
           </Button>
           <Button onClick={handleSignOut} variant="outline" className="text-slate-300 border-slate-600 hover:bg-slate-700">
@@ -116,7 +245,6 @@ const Dashboard = () => {
       <Logo />
 
       <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        {/* هنا لو تحب تعرض إحصائيات */}
         <DashboardStats stats={stats} />
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
@@ -161,7 +289,7 @@ const Dashboard = () => {
 
       <AnimatePresence>
         {showCreateDialog && (
-          <ExamForm onExamCreated={() => { setShowCreateDialog(false); if (user) fetchExams(user.id); }} onCancel={() => setShowCreateDialog(false)} userId={user?.id} />
+          <ExamForm onExamCreated={handleExamCreated} onCancel={() => setShowCreateDialog(false)} userId={user?.id} />
         )}
       </AnimatePresence>
 
