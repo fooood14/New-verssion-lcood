@@ -90,7 +90,6 @@ const ExamSession = () => {
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
 
-      // إذا جاء الطلب بتخطي التسجيل
       if (skipRegistration) {
         const tempInfo = { name: 'مشارك مباشر', phone: '', email: '' };
         setStudentInfo(tempInfo);
@@ -113,8 +112,8 @@ const ExamSession = () => {
 
         setParticipantId(participant.id);
         setExamStartTime(Date.now());
-        setCurrentStep('exam');
-        toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+        setCurrentStep('start'); // ⬅️ نبدأ بخطوة البدء
+        toast({ title: "جاهز للبدء!", description: "اضغط على زر 'ابدأ الاختبار' لتشغيل الفيديوهات تلقائياً" });
       }
     };
 
@@ -178,8 +177,8 @@ const ExamSession = () => {
 
     setParticipantId(data.id);
     setExamStartTime(Date.now());
-    setCurrentStep('exam');
-    toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+    setCurrentStep('start'); // ⬅️ نبدأ من صفحة البداية
+    toast({ title: "جاهز للبدء!", description: "اضغط على زر 'ابدأ الاختبار' لتشغيل الفيديوهات تلقائياً" });
   };
 
   const submitExam = async () => {
@@ -211,7 +210,7 @@ const ExamSession = () => {
     }
 
     setCurrentStep('completed');
-    toast({ title: "تم إنهاء الاختبار! 🎉", description: `نتيجتك: ${score}/${exam.questions.length} - متوسط النجاح: ${percentage}%` });
+    toast({ title: "تم إنهاء الاختبار! 🎉", description: `نتيجتك: ${score}/${exam.questions.length} - نسبة النجاح: ${percentage}%` });
   };
 
   if (loading || !exam) {
@@ -231,6 +230,30 @@ const ExamSession = () => {
         {currentStep === 'registration' && (
           <RegistrationStep key="registration" exam={exam} onSubmit={handleRegistrationSubmit} />
         )}
+        {currentStep === 'start' && (
+          <motion.div
+            key="start"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="max-w-2xl w-full mx-auto text-center"
+          >
+            <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm">
+              <h2 className="text-2xl font-bold text-white mb-4">هل أنت مستعد؟</h2>
+              <p className="text-gray-300 mb-6">عند الضغط على الزر، سيبدأ الاختبار وسيتم تشغيل الفيديوهات تلقائيًا مع الصوت.</p>
+              <Button
+                onClick={() => {
+                  setExamStartTime(Date.now());
+                  setCurrentStep('exam');
+                  toast({ title: "بدء الاختبار! 🚀", description: "بالتوفيق!" });
+                }}
+                className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+              >
+                ابدأ الاختبار
+              </Button>
+            </Card>
+          </motion.div>
+        )}
         {currentStep === 'exam' && exam.questions && exam.questions.length > 0 && (
           <ExamStep
             key="exam"
@@ -241,23 +264,6 @@ const ExamSession = () => {
             setAnswers={setAnswers}
             onSubmit={submitExam}
           />
-        )}
-        {currentStep === 'exam' && (!exam.questions || exam.questions.length === 0) && (
-          <motion.div
-            key="no-questions"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="max-w-2xl w-full mx-auto text-center"
-          >
-            <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm">
-              <h2 className="text-2xl font-bold text-white mb-4">لا توجد أسئلة</h2>
-              <p className="text-gray-300 mb-6">هذا الاختبار لا يحتوي على أسئلة حالياً. يرجى مراجعة منشئ الاختبار.</p>
-              <Button onClick={() => navigate('/dashboard')} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-                العودة للوحة التحكم
-              </Button>
-            </Card>
-          </motion.div>
         )}
         {currentStep === 'completed' && (
           <CompletionStep key="completed" studentInfo={studentInfo} />
