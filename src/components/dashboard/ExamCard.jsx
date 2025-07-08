@@ -25,7 +25,9 @@ const ExamCard = ({
 
   const handleStartSession = (withVideo) => {
     setDialogOpen(false);
-    if (onStartSession) onStartSession(exam, withVideo);
+    if (onStartSession) {
+      onStartSession(exam, withVideo); // فقط إنشاء الجلسة بدون توجيه
+    }
   };
 
   return (
