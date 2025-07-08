@@ -157,7 +157,6 @@ const Dashboard = () => {
         return;
       }
 
-      // نسخ الأسئلة
       const { data: originalQuestions, error: fetchError } = await supabase
         .from('questions')
         .select('*')
@@ -182,13 +181,8 @@ const Dashboard = () => {
         return;
       }
 
-      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن للجلسة.' });
-
-      setTimeout(() => {
-        navigate(`/session/${session.id}`, {
-          state: { skipRegistration: true }
-        });
-      }, 500);
+      toast({ title: 'تم إنشاء الجلسة', description: 'تمت إضافة الجلسة إلى لوحة التحكم.' });
+      fetchExams(user.id); // تحديث القائمة
     } else {
       const link = `${window.location.origin}/session/${exam.id}`;
       navigator.clipboard.writeText(link);
