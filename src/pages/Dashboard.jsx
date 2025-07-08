@@ -1,4 +1,19 @@
-// ... جميع import كما في كودك السابق
+
+Vous avez dit :
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabaseClient';
+import { toast } from '@/components/ui/use-toast';
+
+import { Button } from '@/components/ui/button';
+import { Plus, LogOut, Shield } from 'lucide-react';
+
+import ExamCard from '@/components/dashboard/ExamCard';
+import ExamForm from '@/components/dashboard/ExamForm';
+import DashboardStats from '@/components/dashboard/DashboardStats';
+import AdminLoginDialog from '@/components/dashboard/AdminLoginDialog';
+import Logo from '@/components/Logo';
 
 const Dashboard = () => {
   const [exams, setExams] = useState([]);
@@ -122,15 +137,14 @@ const Dashboard = () => {
     }
   };
 
-  // إنشاء جلسة فقط (دون التوجيه)
-  const handleCreateSession = async (exam, withVideo = false) => {
+  const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
     if (!user) return;
 
     if (exam.is_permanent) {
       const { data: session, error } = await supabase
         .from('tests')
         .insert({
-          title: `${exam.title} - جلسة مباشرة`,
+          title: ${exam.title} - جلسة مباشرة,
           duration: exam.duration,
           user_id: user.id,
           is_permanent: false,
@@ -170,39 +184,99 @@ const Dashboard = () => {
         return;
       }
 
-      toast({ title: 'تم إنشاء الجلسة', description: 'تمت إضافة الجلسة إلى قائمة الاختبارات.' });
-      fetchExams(user.id);
+      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن للجلسة.' });
+
+      setTimeout(() => {
+        navigate(/session/${session.id}, {
+          state: { skipRegistration: true }
+        });
+      }, 500);
+    } else {
+      const link = ${window.location.origin}/session/${exam.id};
+      navigator.clipboard.writeText(link);
+      toast({ title: 'تم نسخ الرابط', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
     }
   };
 
   const handleViewLiveSession = (exam) => {
-    navigate(`/live-session/${exam.id}`, { state: { exam } });
+    navigate(/live-session/${exam.id}, { state: { exam } });
   };
 
   const handleViewResults = (examId) => {
-    navigate(`/results/${examId}`);
+    navigate(/results/${examId});
   };
 
   return (
     <div className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
-      {/* ... بقية JSX بدون تعديل كبير ... */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {exams.map((exam, index) => (
-          <ExamCard
-            key={exam.id}
-            exam={exam}
-            index={index}
-            isOwner={exam.user_id === user?.id}
-            onDelete={handleDelete}
-            onCopyLink={() => navigator.clipboard.writeText(`${window.location.origin}/session/${exam.id}`)}
-            onViewResults={handleViewResults}
-            onStartSession={handleCreateSession}
-            onViewLiveSession={handleViewLiveSession}
-          />
-        ))}
-      </div>
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">لوحة التحكم</h1>
+          <p className="text-sm sm:text-base text-slate-400">مرحباً بعودتك، {user?.email}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="ghost" size="icon" onClick={handleAdminAccess} className="text-slate-300 hover:bg-slate-700 hover:text-yellow-400">
+            <Shield className="h-6 w-6" />
+          </Button>
+          <Button onClick={handleSignOut} variant="outline" className="text-slate-300 border-slate-600 hover:bg-slate-700">
+            <LogOut className="w-4 h-4 ml-2" />
+            تسجيل الخروج
+          </Button>
+        </div>
+      </header>
+
+      <Logo />
+
+      <motion.main initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <DashboardStats stats={stats} />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white">اختباراتك</h2>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          >
+            <Plus className="w-4 h-4 ml-2" />
+            إنشاء اختبار جديد
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-center text-white mt-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-3"></div>
+            <p>جاري تحميل الاختبارات...</p>
+          </div>
+        ) : exams.length === 0 ? (
+          <div className="text-center py-12 sm:py-16 bg-slate-800/50 rounded-lg border border-dashed border-slate-700">
+            <h3 className="text-lg sm:text-xl font-semibold text-white">لم تقم بإنشاء أي اختبارات بعد</h3>
+            <p className="text-slate-400 mt-2 mb-4">انقر على "إنشاء اختبار جديد" للبدء.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {exams.map((exam, index) => (
+              <ExamCard
+                key={exam.id}
+                exam={exam}
+                index={index}
+                isOwner={exam.user_id === user?.id}
+                onDelete={handleDelete}
+                onCopyLink={handleCreateSessionOrCopyLink}
+                onViewResults={handleViewResults}
+                onStartSession={handleCreateSessionOrCopyLink}
+                onViewLiveSession={handleViewLiveSession}
+              />
+            ))}
+          </div>
+        )}
+      </motion.main>
+
+      <AnimatePresence>
+        {showCreateDialog && (
+          <ExamForm onExamCreated={handleExamCreated} onCancel={() => setShowCreateDialog(false)} userId={user?.id} />
+        )}
+      </AnimatePresence>
+
+      <AdminLoginDialog open={showAdminLogin} onOpenChange={setShowAdminLogin} />
     </div>
   );
 };
 
-export default Dashboard;
+export default Dashboard;  
