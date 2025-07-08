@@ -8,7 +8,8 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
-  const videoRef = useRef(null); // ⬅️ مرجع الفيديو
+
+  const videoRef = useRef(null);
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -25,21 +26,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     resetQuestionTimer();
   }, [currentQuestionIndex]);
 
-  // ⬅️ كل مرة يتبدل السؤال نشغل الفيديو تلقائيًا
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime = 0;
-      video.muted = false;
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((error) => {
-          console.warn("فشل تشغيل الفيديو تلقائيًا:", error);
-        });
-      }
-    }
-  }, [currentQuestionIndex]);
-
   useEffect(() => {
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
     const timer = setInterval(() => {
@@ -53,6 +39,18 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     }, 1000);
     return () => clearInterval(timer);
   }, [questionTimeLeft, currentQuestionIndex]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.error('فشل تشغيل الفيديو تلقائيًا:', error);
+        });
+      }
+    }
+  }, [currentQuestionIndex]);
 
   const handleAnswerSelect = (questionId, answerIndex, partIndex = null) => {
     const question = exam.questions.find((q) => q.id === questionId);
@@ -154,15 +152,13 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         {currentQuestion.video_url && (
           <div className="mb-6">
             <video
+              key={currentQuestion.video_url}
               ref={videoRef}
-              key={currentQuestion.id}
               src={currentQuestion.video_url}
-              controls={false}
-              className="w-full rounded-lg"
               autoPlay
+              controls
               muted={false}
-              playsInline
-              preload="auto"
+              className="w-full rounded-lg"
               onEnded={nextQuestion}
             >
               المتصفح لا يدعم تشغيل الفيديو.
@@ -180,6 +176,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
           )}
         </div>
 
+        {/* الأسئلة */}
         {currentQuestion.question_type === 'compound' && parts.length > 0 ? (
           <div className="space-y-6">
             {parts.map((part, partIdx) => (
@@ -238,6 +235,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         )}
       </Card>
 
+      {/* أزرار التنقل */}
       <div className="flex justify-between items-center">
         <Button onClick={prevQuestion} disabled={currentQuestionIndex === 0} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
           <ArrowRight className="w-4 h-4 ml-2" /> السؤال السابق
