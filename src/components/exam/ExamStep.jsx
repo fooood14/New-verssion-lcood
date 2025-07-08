@@ -135,17 +135,20 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
       </div>
 
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
-        {/* ✅ عرض الفيديو إن وُجد */}
+        {/* ✅ تشغيل الفيديو تلقائيًا بالصوت */}
         {currentQuestion.video_url && (
           <div className="mb-6">
             <video
-  key={currentQuestion.video_url} // 💡 هذا هو المفتاح لتحديث الفيديو
-  controls
-  className="w-full rounded-lg"
->
-  <source src={currentQuestion.video_url} type="video/mp4" />
-  المتصفح لا يدعم تشغيل الفيديو.
-</video>
+              key={currentQuestion.video_url}
+              src={currentQuestion.video_url}
+              autoPlay
+              controls={false}
+              muted={false}
+              onEnded={nextQuestion}
+              className="w-full rounded-lg"
+            >
+              المتصفح لا يدعم تشغيل الفيديو.
+            </video>
           </div>
         )}
 
