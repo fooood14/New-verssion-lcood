@@ -89,8 +89,6 @@ const ExamSession = () => {
       setExam(formattedExam);
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
-
-‎      // إذا جاء الطلب بتخطي التسجيل
       if (skipRegistration) {
 ‎        // إعداد بيانات مؤقتة للمشارك
         const tempInfo = { name: 'مشارك مباشر', phone: '', email: '' };
