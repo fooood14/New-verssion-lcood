@@ -27,8 +27,8 @@ const isCorrect = (userAnswers, correctAnswers, question) => {
 const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation(); // استيراد الموقع
-  const skipRegistration = location.state?.skipRegistration || false; // قراءة الحالة
+  const location = useLocation();
+  const skipRegistration = location.state?.skipRegistration || false;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -89,12 +89,12 @@ const ExamSession = () => {
       setExam(formattedExam);
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
+
+      // إذا جاء الطلب بتخطي التسجيل
       if (skipRegistration) {
-‎        // إعداد بيانات مؤقتة للمشارك
         const tempInfo = { name: 'مشارك مباشر', phone: '', email: '' };
         setStudentInfo(tempInfo);
 
-‎        // إنشاء مشارك مؤقت في قاعدة البيانات
         const participantData = data.is_restricted_by_email
           ? { session_id: examId, email: tempInfo.email.trim().toLowerCase(), session_user_id: data.user_id }
           : { session_id: examId, name: tempInfo.name, phone_number: tempInfo.phone, session_user_id: data.user_id };
@@ -254,7 +254,7 @@ const ExamSession = () => {
               <h2 className="text-2xl font-bold text-white mb-4">لا توجد أسئلة</h2>
               <p className="text-gray-300 mb-6">هذا الاختبار لا يحتوي على أسئلة حالياً. يرجى مراجعة منشئ الاختبار.</p>
               <Button onClick={() => navigate('/dashboard')} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-‎                العودة للوحة التحكم
+                العودة للوحة التحكم
               </Button>
             </Card>
           </motion.div>
