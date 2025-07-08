@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, ArrowLeft, CheckCircle, RotateCcw, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
-  const [shouldPlay, setShouldPlay] = useState(false); // 👈 جديد
+  const videoRef = useRef(null); // ⬅️ مرجع الفيديو
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -25,12 +25,19 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     resetQuestionTimer();
   }, [currentQuestionIndex]);
 
+  // ⬅️ كل مرة يتبدل السؤال نشغل الفيديو تلقائيًا
   useEffect(() => {
-    setShouldPlay(false); // 👈 نوقف التشغيل مؤقتاً
-    const timeout = setTimeout(() => {
-      setShouldPlay(true); // 👈 نفعل التشغيل بعد لحظة قصيرة
-    }, 100);
-    return () => clearTimeout(timeout);
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = 0;
+      video.muted = false;
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.warn("فشل تشغيل الفيديو تلقائيًا:", error);
+        });
+      }
+    }
   }, [currentQuestionIndex]);
 
   useEffect(() => {
@@ -147,15 +154,16 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         {currentQuestion.video_url && (
           <div className="mb-6">
             <video
-              key={currentQuestion.video_url}
+              ref={videoRef}
+              key={currentQuestion.id}
               src={currentQuestion.video_url}
-              autoPlay={shouldPlay}
               controls={false}
+              className="w-full rounded-lg"
+              autoPlay
               muted={false}
               playsInline
               preload="auto"
               onEnded={nextQuestion}
-              className="w-full rounded-lg"
             >
               المتصفح لا يدعم تشغيل الفيديو.
             </video>
