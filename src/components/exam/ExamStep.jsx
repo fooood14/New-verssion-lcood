@@ -8,6 +8,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
+  const [shouldPlay, setShouldPlay] = useState(false); // 👈 جديد
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -22,6 +23,14 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
 
   useEffect(() => {
     resetQuestionTimer();
+  }, [currentQuestionIndex]);
+
+  useEffect(() => {
+    setShouldPlay(false); // 👈 نوقف التشغيل مؤقتاً
+    const timeout = setTimeout(() => {
+      setShouldPlay(true); // 👈 نفعل التشغيل بعد لحظة قصيرة
+    }, 100);
+    return () => clearTimeout(timeout);
   }, [currentQuestionIndex]);
 
   useEffect(() => {
@@ -135,15 +144,16 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
       </div>
 
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
-        {/* ✅ تشغيل الفيديو تلقائيًا بالصوت */}
         {currentQuestion.video_url && (
           <div className="mb-6">
             <video
               key={currentQuestion.video_url}
               src={currentQuestion.video_url}
-              autoPlay
+              autoPlay={shouldPlay}
               controls={false}
               muted={false}
+              playsInline
+              preload="auto"
               onEnded={nextQuestion}
               className="w-full rounded-lg"
             >
