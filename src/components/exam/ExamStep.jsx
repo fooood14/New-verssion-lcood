@@ -94,11 +94,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
         )}
 
         <div className="flex justify-between items-start mb-6">
-          {!viewOnly && (
-            <h3 className="text-xl font-semibold text-white text-right flex-1">
-              {currentQuestion.question}
-            </h3>
-          )}
+          <h3 className="text-xl font-semibold text-white text-right flex-1">
+            {currentQuestion.question}
+          </h3>
           {currentQuestion.time_limit_seconds && (
             <div className="flex items-center gap-2 text-orange-400 font-mono text-lg mr-4">
               <Clock className="w-5 h-5" />
@@ -107,58 +105,89 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
           )}
         </div>
 
-        {!viewOnly && (
-          currentQuestion.question_type === 'compound' ? (
-            <div className="space-y-6">
-              {currentQuestion.parts.map((part, partIndex) => {
-                const partAnswers = answers[currentQuestion.id]?.[partIndex] || '';
-                return (
-                  <div key={partIndex}>
-                    <p className="text-white font-semibold mb-2">{part.prompt}</p>
-                    <input
-                      type="text"
-                      value={partAnswers}
-                      onChange={(e) => {
-                        const updatedParts = [...(answers[currentQuestion.id] || [])];
-                        updatedParts[partIndex] = e.target.value;
-                        setAnswers({ ...answers, [currentQuestion.id]: updatedParts });
-                      }}
-                      className="w-full px-4 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white"
-                      placeholder="أدخل إجابتك"
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {currentQuestion.options.map((option, index) => {
-                const isSelected = (answers[currentQuestion.id] || []).includes(option);
+        {currentQuestion.question_type === 'compound' ? (
+          <div className="space-y-6">
+            {currentQuestion.parts.map((part, partIndex) => {
+              return (
+                <div key={partIndex}>
+                  <p className="text-white font-semibold mb-2">{part.prompt}</p>
+                  <div className="space-y-2">
+                    {part.options?.map((option, optIndex) => {
+                      const selected = answers[currentQuestion.id]?.[partIndex] === option;
 
-                return (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      const currentAnswers = answers[currentQuestion.id] || [];
-                      const newAnswers = currentQuestion.question_type === 'multiple'
-                        ? currentAnswers.includes(option)
-                          ? currentAnswers.filter((a) => a !== option)
-                          : [...currentAnswers, option]
-                        : [option];
-                      setAnswers({ ...answers, [currentQuestion.id]: newAnswers });
-                    }}
-                    className={`block w-full text-right px-4 py-3 rounded-lg border transition-all duration-150 ${
-                      isSelected
-                        ? 'bg-green-700 border-green-500 text-white'
-                        : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          )
+                      return viewOnly ? (
+                        <div
+                          key={optIndex}
+                          className={`w-full px-4 py-2 rounded-lg border ${
+                            selected
+                              ? 'bg-green-700 border-green-500 text-white'
+                              : 'bg-slate-700 border-slate-600 text-gray-300'
+                          }`}
+                        >
+                          {option}
+                        </div>
+                      ) : (
+                        <button
+                          key={optIndex}
+                          onClick={() => {
+                            const updatedParts = [...(answers[currentQuestion.id] || [])];
+                            updatedParts[partIndex] = option;
+                            setAnswers({ ...answers, [currentQuestion.id]: updatedParts });
+                          }}
+                          className={`block w-full text-right px-4 py-2 rounded-lg border transition-all duration-150 ${
+                            selected
+                              ? 'bg-green-700 border-green-500 text-white'
+                              : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {currentQuestion.options.map((option, index) => {
+              const isSelected = (answers[currentQuestion.id] || []).includes(option);
+
+              return viewOnly ? (
+                <div
+                  key={index}
+                  className={`block w-full text-right px-4 py-3 rounded-lg border ${
+                    isSelected
+                      ? 'bg-green-700 border-green-500 text-white'
+                      : 'bg-slate-700 border-slate-600 text-gray-200'
+                  }`}
+                >
+                  {option}
+                </div>
+              ) : (
+                <button
+                  key={index}
+                  onClick={() => {
+                    const currentAnswers = answers[currentQuestion.id] || [];
+                    const newAnswers = currentQuestion.question_type === 'multiple'
+                      ? currentAnswers.includes(option)
+                        ? currentAnswers.filter((a) => a !== option)
+                        : [...currentAnswers, option]
+                      : [option];
+                    setAnswers({ ...answers, [currentQuestion.id]: newAnswers });
+                  }}
+                  className={`block w-full text-right px-4 py-3 rounded-lg border transition-all duration-150 ${
+                    isSelected
+                      ? 'bg-green-700 border-green-500 text-white'
+                      : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
         )}
       </Card>
 
