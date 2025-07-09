@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, ArrowLeft, CheckCircle, RotateCcw, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }) => {
+const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, viewOnly = false }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
-
   const videoRef = useRef(null);
 
   const formatTime = (seconds) => {
@@ -17,13 +16,8 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const resetQuestionTimer = () => {
-    const newQuestion = exam.questions[currentQuestionIndex];
-    setQuestionTimeLeft(newQuestion?.time_limit_seconds || 30);
-  };
-
   useEffect(() => {
-    resetQuestionTimer();
+    setQuestionTimeLeft(currentQuestion?.time_limit_seconds || 30);
   }, [currentQuestionIndex]);
 
   useEffect(() => {
@@ -43,7 +37,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = false;
-      videoRef.current.load();  // مهم لإعادة تحميل الفيديو الجديد
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch((error) => {
@@ -53,65 +46,13 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
     }
   }, [currentQuestionIndex]);
 
-  const handleAnswerSelect = (questionId, answerIndex, partIndex = null) => {
-    const question = exam.questions.find((q) => q.id === questionId);
-    setAnswers((prev) => {
-      const newAnswers = { ...prev };
-
-      if (question.question_type === 'compound') {
-        const current = Array.isArray(newAnswers[questionId]) ? [...newAnswers[questionId]] : [];
-        current[partIndex] = answerIndex;
-        newAnswers[questionId] = current;
-      } else if (question.question_type === 'single') {
-        newAnswers[questionId] = [answerIndex];
-      } else {
-        const current = newAnswers[questionId] || [];
-        const i = current.indexOf(answerIndex);
-        if (i === -1) current.push(answerIndex);
-        else current.splice(i, 1);
-        newAnswers[questionId] = [...current];
-      }
-
-      return newAnswers;
-    });
-  };
-
-  const clearAnswer = (questionId) => {
-    setAnswers((prev) => {
-      const updated = { ...prev };
-      delete updated[questionId];
-      return updated;
-    });
-  };
-
   const nextQuestion = () => {
     if (currentQuestionIndex < exam.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
-    } else {
+    } else if (!viewOnly) {
       onSubmit();
     }
   };
-
-  const prevQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
-  };
-
-  const currentAnswers = Array.isArray(answers[currentQuestion.id]) ? answers[currentQuestion.id] : [];
-
-  let parts = [];
-  if (currentQuestion.question_type === 'compound') {
-    if (Array.isArray(currentQuestion.parts)) {
-      parts = currentQuestion.parts;
-    } else if (typeof currentQuestion.parts === 'string') {
-      try {
-        parts = JSON.parse(currentQuestion.parts);
-      } catch {
-        parts = [];
-      }
-    }
-  }
 
   return (
     <motion.div
@@ -134,26 +75,11 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         </div>
       </div>
 
-      <div className="mb-6">
-        <div className="flex justify-between text-white mb-2">
-          <span>السؤال {currentQuestionIndex + 1} من {exam.questions.length}</span>
-          <span>{Math.round(((currentQuestionIndex + 1) / exam.questions.length) * 100)}%</span>
-        </div>
-        <div className="w-full bg-slate-700 rounded-full h-3">
-          <motion.div
-            className="bg-gradient-to-r from-yellow-400 to-orange-500 h-3 rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${((currentQuestionIndex + 1) / exam.questions.length) * 100}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-      </div>
-
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
         {currentQuestion.video_url && (
           <div className="mb-6">
             <video
-              key={currentQuestion.id}  // مهم لتغيير الفيديو عند السؤال الجديد
+              key={currentQuestion.video_url}
               ref={videoRef}
               src={currentQuestion.video_url}
               autoPlay
@@ -168,7 +94,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         )}
 
         <div className="flex justify-between items-start mb-6">
-          <h3 className="text-xl font-semibold text-white text-right flex-1">{currentQuestion.question}</h3>
+          {!viewOnly && (
+            <h3 className="text-xl font-semibold text-white text-right flex-1">{currentQuestion.question}</h3>
+          )}
           {currentQuestion.time_limit_seconds && (
             <div className="flex items-center gap-2 text-orange-400 font-mono text-lg mr-4">
               <Clock className="w-5 h-5" />
@@ -177,93 +105,19 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
           )}
         </div>
 
-        {/* الأسئلة */}
-        {currentQuestion.question_type === 'compound' && parts.length > 0 ? (
-          <div className="space-y-6">
-            {parts.map((part, partIdx) => (
-              <div key={partIdx} className="p-4 bg-slate-700/50 border border-slate-600 rounded-xl">
-                <p className="text-white font-medium mb-3">{part.text}</p>
-                <div className="space-y-3">
-                  {part.options.map((option, index) => (
-                    <motion.div key={index} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                      <button
-                        onClick={() => handleAnswerSelect(currentQuestion.id, index, partIdx)}
-                        className={`w-full p-4 text-right rounded-lg border-2 transition-all duration-300 ${
-                          currentAnswers[partIdx] === index
-                            ? 'border-yellow-500 bg-yellow-500/20 text-white'
-                            : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:border-slate-500'
-                        }`}
-                      >
-                        <div className="flex items-center justify-end gap-3">
-                          <span className="text-lg">{option}</span>
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            currentAnswers[partIdx] === index
-                              ? 'border-yellow-500 bg-yellow-500'
-                              : 'border-slate-500'
-                          }`} />
-                        </div>
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {currentQuestion.options.map((option, index) => (
-              <motion.div key={index} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <button
-                  onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-                  className={`w-full p-4 text-right rounded-lg border-2 transition-all duration-300 ${
-                    currentAnswers.includes(index)
-                      ? 'border-yellow-500 bg-yellow-500/20 text-white'
-                      : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:border-slate-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-end gap-3">
-                    <span className="text-lg">{option}</span>
-                    <div className={`w-4 h-4 rounded-full border-2 ${
-                      currentAnswers.includes(index)
-                        ? 'border-yellow-500 bg-yellow-500'
-                        : 'border-slate-500'
-                    }`} />
-                  </div>
-                </button>
-              </motion.div>
-            ))}
-          </div>
+        {!viewOnly && (
+          <>
+            {/* هنا يمكن عرض الخيارات مثل السابق إذا لم يكن في وضع العرض فقط */}
+          </>
         )}
       </Card>
 
-      {/* أزرار التنقل */}
-      <div className="flex justify-between items-center">
-        <Button onClick={prevQuestion} disabled={currentQuestionIndex === 0} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
-          <ArrowRight className="w-4 h-4 ml-2" /> السؤال السابق
-        </Button>
-
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={() => clearAnswer(currentQuestion.id)}
-            variant="outline"
-            className="border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-            disabled={currentAnswers.length === 0}
-          >
-            <RotateCcw className="w-4 h-4 ml-2" />
-            إلغاء
-          </Button>
-
-          {currentQuestionIndex === exam.questions.length - 1 ? (
-            <Button onClick={onSubmit} className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white">
-              إنهاء الاختبار <CheckCircle className="w-4 h-4 mr-2" />
-            </Button>
-          ) : (
-            <Button onClick={nextQuestion} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-              السؤال التالي <ArrowLeft className="w-4 h-4 mr-2" />
-            </Button>
-          )}
+      {/* عرض رسالة عند انتهاء كل الفيديوهات */}
+      {viewOnly && currentQuestionIndex === exam.questions.length - 1 && (
+        <div className="text-center text-white mt-6">
+          تم عرض جميع الفيديوهات ✅
         </div>
-      </div>
+      )}
     </motion.div>
   );
 };
