@@ -20,7 +20,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     setQuestionTimeLeft(currentQuestion?.time_limit_seconds || 30);
   }, [currentQuestionIndex, currentQuestion]);
 
-  // عداد تنازلي للسؤال مع الانتقال للسؤال التالي عند انتهاء الوقت فقط (تجاهل انتهاء الفيديو)
+  // عداد تنازلي للسؤال مع الانتقال للسؤال التالي عند انتهاء الوقت فقط
   useEffect(() => {
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
 
@@ -38,7 +38,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     return () => clearInterval(timer);
   }, [currentQuestionIndex, currentQuestion]);
 
-  // تشغيل الفيديو تلقائياً عند تغير السؤال
+  // تشغيل الفيديو تلقائياً
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = false;
@@ -51,9 +51,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     }
   }, [currentQuestionIndex]);
 
-  // تجاهل حدث انتهاء الفيديو (onEnded) ولا تستخدمه للانتقال للسؤال التالي
-
-  // الانتقال للسؤال التالي أو انهاء الاختبار
   const nextQuestion = () => {
     if (currentQuestionIndex < exam.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
@@ -103,7 +100,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
 
         <div className="flex justify-between items-start mb-6">
           {!viewOnly && (
-            <h3 className="text-xl font-semibold text-white text-right flex-1">{currentQuestion.question}</h3>
+            <h3 className="text-xl font-semibold text-white text-right flex-1">
+              {currentQuestion.question}
+            </h3>
           )}
           {currentQuestion.time_limit_seconds && (
             <div className="flex items-center gap-2 text-orange-400 font-mono text-lg mr-4">
@@ -114,19 +113,20 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
         </div>
 
         {!viewOnly && (
-          <>
-            {/* مكان عرض خيارات الأسئلة */}
-          </>
-        )}
-      </Card>
+          <div className="space-y-4">
+            {currentQuestion.options.map((option, index) => {
+              const isSelected = (answers[currentQuestion.id] || []).includes(option);
 
-      {viewOnly && currentQuestionIndex === exam.questions.length - 1 && (
-        <div className="text-center text-white mt-6">
-          تم عرض جميع الفيديوهات ✅
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-export default ExamStep;
+              return (
+                <button
+                  key={index}
+                  onClick={() => {
+                    const currentAnswers = answers[currentQuestion.id] || [];
+                    const newAnswers = currentQuestion.question_type === 'multiple'
+                      ? currentAnswers.includes(option)
+                        ? currentAnswers.filter((a) => a !== option)
+                        : [...currentAnswers, option]
+                      : [option];
+                    setAnswers({ ...answers, [currentQuestion.id]: newAnswers });
+                  }}
+                  className={`block w-full text-right px-4 py-3 rou
