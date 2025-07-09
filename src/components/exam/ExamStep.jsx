@@ -15,15 +15,12 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  // إعادة تعيين وقت السؤال عند تغيير السؤال
   useEffect(() => {
     setQuestionTimeLeft(currentQuestion?.time_limit_seconds || 30);
   }, [currentQuestionIndex, currentQuestion]);
 
-  // عداد تنازلي للسؤال مع الانتقال للسؤال التالي عند انتهاء الوقت فقط
   useEffect(() => {
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
-
     const timer = setInterval(() => {
       setQuestionTimeLeft((prev) => {
         if (prev <= 1) {
@@ -34,11 +31,9 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [currentQuestionIndex, currentQuestion]);
 
-  // تشغيل الفيديو تلقائياً
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = false;
@@ -113,33 +108,57 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
         </div>
 
         {!viewOnly && (
-          <div className="space-y-4">
-            {currentQuestion.options.map((option, index) => {
-              const isSelected = (answers[currentQuestion.id] || []).includes(option);
+          currentQuestion.question_type === 'compound' ? (
+            <div className="space-y-6">
+              {currentQuestion.parts.map((part, partIndex) => {
+                const partAnswers = answers[currentQuestion.id]?.[partIndex] || '';
+                return (
+                  <div key={partIndex}>
+                    <p className="text-white font-semibold mb-2">{part.prompt}</p>
+                    <input
+                      type="text"
+                      value={partAnswers}
+                      onChange={(e) => {
+                        const updatedParts = [...(answers[currentQuestion.id] || [])];
+                        updatedParts[partIndex] = e.target.value;
+                        setAnswers({ ...answers, [currentQuestion.id]: updatedParts });
+                      }}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white"
+                      placeholder="أدخل إجابتك"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {currentQuestion.options.map((option, index) => {
+                const isSelected = (answers[currentQuestion.id] || []).includes(option);
 
-              return (
-                <button
-                  key={index}
-                  onClick={() => {
-                    const currentAnswers = answers[currentQuestion.id] || [];
-                    const newAnswers = currentQuestion.question_type === 'multiple'
-                      ? currentAnswers.includes(option)
-                        ? currentAnswers.filter((a) => a !== option)
-                        : [...currentAnswers, option]
-                      : [option];
-                    setAnswers({ ...answers, [currentQuestion.id]: newAnswers });
-                  }}
-                  className={`block w-full text-right px-4 py-3 rounded-lg border transition-all duration-150 ${
-                    isSelected
-                      ? 'bg-green-700 border-green-500 text-white'
-                      : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
-                  }`}
-                >
-                  {option}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      const currentAnswers = answers[currentQuestion.id] || [];
+                      const newAnswers = currentQuestion.question_type === 'multiple'
+                        ? currentAnswers.includes(option)
+                          ? currentAnswers.filter((a) => a !== option)
+                          : [...currentAnswers, option]
+                        : [option];
+                      setAnswers({ ...answers, [currentQuestion.id]: newAnswers });
+                    }}
+                    className={`block w-full text-right px-4 py-3 rounded-lg border transition-all duration-150 ${
+                      isSelected
+                        ? 'bg-green-700 border-green-500 text-white'
+                        : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          )
         )}
       </Card>
 
