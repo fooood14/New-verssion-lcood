@@ -129,4 +129,27 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
                       : [option];
                     setAnswers({ ...answers, [currentQuestion.id]: newAnswers });
                   }}
-                  className={`block w-full text-right px-4 py-3 rou
+                  className={`block w-full text-right px-4 py-3 rounded-lg border transition-all duration-150 ${
+                    isSelected
+                      ? 'bg-green-700 border-green-500 text-white'
+                      : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {viewOnly && currentQuestionIndex === exam.questions.length - 1 && (
+        <div className="text-center text-white mt-6">
+          تم عرض جميع الفيديوهات ✅
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+export default ExamStep;
