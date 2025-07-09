@@ -29,7 +29,6 @@ const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const isLiveView = location.state?.skipRegistration || false;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -40,6 +39,8 @@ const ExamSession = () => {
   const [participantId, setParticipantId] = useState(null);
   const [examStartTime, setExamStartTime] = useState(null);
   const [sessionUserId, setSessionUserId] = useState(null);
+
+  const isLiveView = location.state?.skipRegistration === true;
 
   useEffect(() => {
     const fetchExamDetails = async () => {
@@ -80,7 +81,6 @@ const ExamSession = () => {
           correct_answers: q.correct_answers || [],
           question_type: q.question_type || 'single',
           time_limit_seconds: q.time_limit_seconds || 30,
-          // نعرض الفيديو دائمًا إذا كنا في liveView
           video_url: isLiveView ? (q.video_url || null) : (data.with_video ? (q.video_url || null) : null),
           explanation: q.explanation || '',
           explanation_video_url: q.explanation_video_url || '',
@@ -96,7 +96,7 @@ const ExamSession = () => {
         const tempInfo = { name: 'عرض الجلسة', phone: '', email: '' };
         setStudentInfo(tempInfo);
         setExamStartTime(Date.now());
-        setCurrentStep('exam'); // نبدأ مباشرة في عرض الفيديوهات
+        setCurrentStep('exam');
         return;
       }
     };
@@ -245,7 +245,7 @@ const ExamSession = () => {
             answers={answers}
             setAnswers={setAnswers}
             onSubmit={submitExam}
-            viewOnly={isLiveView} // ⬅️ تمرير الحالة هنا
+            viewOnly={isLiveView}
           />
         )}
         {currentStep === 'completed' && (
