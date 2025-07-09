@@ -19,14 +19,14 @@ const ExamCard = ({
   onViewResults,
   isOwner,
   onStartSession,
-  onViewLiveSession,
+  onViewLiveSession, // دالة الربط مع صفحة العرض السينمائي
 }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleStartSession = (withVideo) => {
     setDialogOpen(false);
     if (onStartSession) {
-      onStartSession(exam, withVideo); // فقط إنشاء الجلسة بدون توجيه
+      onStartSession(exam, withVideo); // إنشاء الجلسة بدون توجيه
     }
   };
 
@@ -139,7 +139,7 @@ const ExamCard = ({
           ) : (
             <div className="flex gap-2 flex-wrap">
               <Button
-                onClick={() => onViewLiveSession(exam)}
+                onClick={() => onViewLiveSession(exam)}  // هنا يفتح عرض الفيديو السينمائي
                 className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
               >
                 <Play className="w-4 h-4 ml-2" />
