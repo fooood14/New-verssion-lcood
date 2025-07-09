@@ -3,20 +3,26 @@ import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
-const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, viewOnly = false }) => {
+const ExamStep = ({
+  exam,
+  studentInfo,
+  timeLeft,
+  answers,
+  setAnswers,
+  onSubmit,
+  viewOnly = false
+}) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
   const videoRef = useRef(null);
 
-  // الحالة المؤقتة للإجابات قبل تأكيدها
   const [tempAnswers, setTempAnswers] = useState(() =>
     currentQuestion.question_type === 'compound'
       ? new Array(currentQuestion.parts.length).fill('')
       : []
   );
 
-  // تهيئة tempAnswers عند تغير السؤال أو الإجابات الخارجية
   useEffect(() => {
     if (!currentQuestion) return;
     if (currentQuestion.question_type === 'compound') {
@@ -26,19 +32,17 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     }
   }, [currentQuestionIndex, currentQuestion, answers]);
 
-  // ضبط مؤقت السؤال
   useEffect(() => {
     setQuestionTimeLeft(currentQuestion?.time_limit_seconds || 30);
   }, [currentQuestionIndex, currentQuestion]);
 
-  // مؤقت العد التنازلي للسؤال
   useEffect(() => {
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
     const timer = setInterval(() => {
       setQuestionTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleNextQuestion(true); // اجتياز السؤال تلقائياً عند انتهاء الوقت مع حفظ الإجابة المؤقتة
+          confirmAndNext(); // حفظ تلقائي عند انتهاء الوقت
           return 0;
         }
         return prev - 1;
@@ -47,7 +51,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     return () => clearInterval(timer);
   }, [currentQuestionIndex, currentQuestion]);
 
-  // تشغيل الفيديو تلقائياً مع الصوت
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = false;
@@ -60,7 +63,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     }
   }, [currentQuestionIndex]);
 
-  // دالة تحديث الاختيار في tempAnswers
   const handleOptionSelect = (partIndex, option) => {
     if (viewOnly) return;
 
@@ -81,13 +83,22 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     }
   };
 
-  // تأكيد الإجابة: حفظ tempAnswers في answers ثم الانتقال للسؤال التالي
-  const confirmAnswer = () => {
-    setAnswers({ ...answers, [currentQuestion.id]: tempAnswers });
-    handleNextQuestion();
+  const confirmAndNext = () => {
+    const updatedAnswers = {
+      ...answers,
+      [currentQuestion.id]: tempAnswers,
+    };
+    setAnswers(updatedAnswers);
+
+    setTimeout(() => {
+      if (currentQuestionIndex < exam.questions.length - 1) {
+        setCurrentQuestionIndex((prev) => prev + 1);
+      } else if (!viewOnly) {
+        onSubmit(updatedAnswers); // إرسال الإجابات عند نهاية الاختبار
+      }
+    }, 0);
   };
 
-  // إلغاء الإجابة: إعادة tempAnswers إلى الإجابة المسجلة في answers (أو فراغ)
   const cancelAnswer = () => {
     if (currentQuestion.question_type === 'compound') {
       setTempAnswers(answers[currentQuestion.id] || new Array(currentQuestion.parts.length).fill(''));
@@ -96,20 +107,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     }
   };
 
-  // التالي بدون حفظ الإجابة (يتجاهل tempAnswers)
-  const handleNextQuestion = (autoSave = false) => {
-    if (autoSave) {
-      // حفظ tempAnswers قبل الانتقال
-      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: tempAnswers }));
-    }
-    if (currentQuestionIndex < exam.questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    } else if (!viewOnly) {
-      onSubmit();
-    }
-  };
-
-  // تنسيق الوقت
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -236,7 +233,6 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
           </div>
         )}
 
-        {/* أزرار تأكيد، إلغاء، التالي */}
         {!viewOnly && (
           <div className="mt-6 flex justify-end gap-4">
             <button
@@ -246,13 +242,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
               إلغاء
             </button>
             <button
-              onClick={handleNextQuestion}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-6 py-2 rounded"
-            >
-              التالي بدون حفظ
-            </button>
-            <button
-              onClick={confirmAnswer}
+              onClick={confirmAndNext}
               className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded"
             >
               تأكيد وحفظ
