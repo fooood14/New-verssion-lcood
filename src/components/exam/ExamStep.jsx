@@ -43,6 +43,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = false;
+      videoRef.current.load();  // مهم لإعادة تحميل الفيديو الجديد
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch((error) => {
@@ -152,7 +153,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }
         {currentQuestion.video_url && (
           <div className="mb-6">
             <video
-              key={currentQuestion.video_url}
+              key={currentQuestion.id}  // مهم لتغيير الفيديو عند السؤال الجديد
               ref={videoRef}
               src={currentQuestion.video_url}
               autoPlay
