@@ -9,6 +9,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
   const videoRef = useRef(null);
+  const hasMovedNextRef = useRef(false); // لمنع تكرار الانتقال للسؤال التالي
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
@@ -16,24 +17,34 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // إعادة تهيئة وقت السؤال وإعادة تعيين علامة الانتقال عند تغير السؤال
   useEffect(() => {
     setQuestionTimeLeft(currentQuestion?.time_limit_seconds || 30);
-  }, [currentQuestionIndex]);
+    hasMovedNextRef.current = false;
+  }, [currentQuestionIndex, currentQuestion]);
 
+  // مؤقت تنازلي لوقت السؤال، عند انتهاء الوقت ينتقل للسؤال التالي مرة واحدة فقط
   useEffect(() => {
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
+
     const timer = setInterval(() => {
       setQuestionTimeLeft((prev) => {
         if (prev <= 1) {
-          nextQuestion();
+          if (!hasMovedNextRef.current) {
+            hasMovedNextRef.current = true;
+            nextQuestion();
+          }
+          clearInterval(timer);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
-  }, [questionTimeLeft, currentQuestionIndex]);
 
+    return () => clearInterval(timer);
+  }, [currentQuestionIndex, currentQuestion]);
+
+  // تشغيل الفيديو تلقائيًا مع الصوت عند تغير السؤال
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = false;
@@ -46,7 +57,11 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     }
   }, [currentQuestionIndex]);
 
+  // الانتقال للسؤال التالي أو إنهاء الاختبار
   const nextQuestion = () => {
+    if (hasMovedNextRef.current) return; // منع التكرار
+    hasMovedNextRef.current = true;
+
     if (currentQuestionIndex < exam.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else if (!viewOnly) {
@@ -83,10 +98,15 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
               ref={videoRef}
               src={currentQuestion.video_url}
               autoPlay
-              controls
-              muted={false}
+              controls={false}  // لا تظهر أدوات التحكم
+              muted={false}      // تشغيل الفيديو بالصوت
               className="w-full rounded-lg"
-              onEnded={nextQuestion}
+              onEnded={() => {
+                if (!hasMovedNextRef.current) {
+                  nextQuestion();
+                }
+              }}
+              playsInline        // تحسين عرض الفيديو على الموبايل
             >
               المتصفح لا يدعم تشغيل الفيديو.
             </video>
@@ -107,16 +127,13 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
 
         {!viewOnly && (
           <>
-            {/* هنا يمكن عرض الخيارات مثل السابق إذا لم يكن في وضع العرض فقط */}
+            {/* يمكنك إضافة خيارات السؤال هنا إذا أردت */}
           </>
         )}
       </Card>
 
-      {/* عرض رسالة عند انتهاء كل الفيديوهات */}
       {viewOnly && currentQuestionIndex === exam.questions.length - 1 && (
-        <div className="text-center text-white mt-6">
-          تم عرض جميع الفيديوهات ✅
-        </div>
+        <div className="text-center text-white mt-6">تم عرض جميع الفيديوهات ✅</div>
       )}
     </motion.div>
   );
