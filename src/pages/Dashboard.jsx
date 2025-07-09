@@ -135,63 +135,70 @@ const Dashboard = () => {
     }
   };
 
-  const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
-    if (!user) return;
+  // دالة إنشاء جلسة جديدة فقط (للاختبارات الدائمة)
+  const createLiveSession = async (exam, withVideo) => {
+    if (!user) return { session: null, error: 'المستخدم غير مسجل' };
 
+    const { data: session, error } = await supabase
+      .from('tests')
+      .insert({
+        title: `${exam.title} - جلسة مباشرة`,
+        duration: exam.duration,
+        user_id: user.id,
+        is_permanent: false,
+        original_test_id: exam.id,
+        with_video: withVideo
+      })
+      .select()
+      .single();
+
+    if (error) return { session: null, error: error.message };
+
+    // نسخ الأسئلة من الاختبار الأصلي إلى الجلسة الجديدة
+    const { data: originalQuestions, error: fetchError } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('test_id', exam.id);
+
+    if (fetchError) return { session: null, error: fetchError.message };
+
+    const clonedQuestions = originalQuestions.map(q => {
+      const { id, ...rest } = q;
+      return { ...rest, test_id: session.id };
+    });
+
+    const { error: insertError } = await supabase
+      .from('questions')
+      .insert(clonedQuestions);
+
+    if (insertError) return { session: null, error: insertError.message };
+
+    return { session, error: null };
+  };
+
+  // دالة التعامل مع نسخ الرابط (للاختبارات غير الدائمة)
+  const copySessionLink = (exam) => {
+    const link = `${window.location.origin}/session/${exam.id}`;
+    navigator.clipboard.writeText(link);
+    toast({ title: 'تم نسخ الرابط', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
+  };
+
+  // الدالة الرئيسية التي يتم تمريرها لـ onCopyLink و onStartSession
+  const handleCopyLinkOrCreateSession = async (exam, withVideo = false) => {
     if (exam.is_permanent) {
-      const { data: session, error } = await supabase
-        .from('tests')
-        .insert({
-          title: `${exam.title} - جلسة مباشرة`,
-          duration: exam.duration,
-          user_id: user.id,
-          is_permanent: false,
-          original_test_id: exam.id,
-          with_video: withVideo
-        })
-        .select()
-        .single();
-
+      const { session, error } = await createLiveSession(exam, withVideo);
       if (error) {
-        toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+        toast({ title: 'خطأ', description: error, variant: 'destructive' });
         return;
       }
-
-      const { data: originalQuestions, error: fetchError } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('test_id', exam.id);
-
-      if (fetchError) {
-        toast({ title: 'فشل تحميل الأسئلة', description: fetchError.message, variant: 'destructive' });
-        return;
-      }
-
-      const clonedQuestions = originalQuestions.map(q => {
-        const { id, ...rest } = q;
-        return { ...rest, test_id: session.id };
-      });
-
-      const { error: insertError } = await supabase
-        .from('questions')
-        .insert(clonedQuestions);
-
-      if (insertError) {
-        toast({ title: 'فشل نسخ الأسئلة', description: insertError.message, variant: 'destructive' });
-        return;
-      }
-
       toast({ title: 'تم إنشاء الجلسة', description: 'يمكنك الآن عرض الجلسة من القائمة.' });
-
-      // لا توجيه هنا (التوجيه سيتم عند الضغط على "عرض الجلسة")
       fetchExams(user.id);
     } else {
-      const link = `${window.location.origin}/session/${exam.id}`;
-      navigator.clipboard.writeText(link);
-      toast({ title: 'تم نسخ الرابط', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
+      copySessionLink(exam);
     }
   };
 
+  // دالة التنقل للعرض السينمائي (عرض الجلسة المباشرة)
   const handleViewLiveSession = (exam) => {
     navigate(`/session/${exam.id}`, { state: { skipRegistration: true } });
   };
@@ -252,9 +259,9 @@ const Dashboard = () => {
                 index={index}
                 isOwner={exam.user_id === user?.id}
                 onDelete={handleDelete}
-                onCopyLink={handleCreateSessionOrCopyLink}
+                onCopyLink={handleCopyLinkOrCreateSession}
                 onViewResults={handleViewResults}
-                onStartSession={handleCreateSessionOrCopyLink}
+                onStartSession={handleCopyLinkOrCreateSession}
                 onViewLiveSession={handleViewLiveSession}
               />
             ))}
