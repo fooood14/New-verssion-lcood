@@ -9,23 +9,36 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
   const videoRef = useRef(null);
 
-  const formatTime = (seconds) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
+  // الحالة المؤقتة للإجابات قبل تأكيدها
+  const [tempAnswers, setTempAnswers] = useState(() =>
+    currentQuestion.question_type === 'compound'
+      ? new Array(currentQuestion.parts.length).fill('')
+      : []
+  );
 
+  // تهيئة tempAnswers عند تغير السؤال أو الإجابات الخارجية
+  useEffect(() => {
+    if (!currentQuestion) return;
+    if (currentQuestion.question_type === 'compound') {
+      setTempAnswers(answers[currentQuestion.id] || new Array(currentQuestion.parts.length).fill(''));
+    } else {
+      setTempAnswers(answers[currentQuestion.id] || []);
+    }
+  }, [currentQuestionIndex, currentQuestion, answers]);
+
+  // ضبط مؤقت السؤال
   useEffect(() => {
     setQuestionTimeLeft(currentQuestion?.time_limit_seconds || 30);
   }, [currentQuestionIndex, currentQuestion]);
 
+  // مؤقت العد التنازلي للسؤال
   useEffect(() => {
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
     const timer = setInterval(() => {
       setQuestionTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          nextQuestion();
+          handleNextQuestion(true); // اجتياز السؤال تلقائياً عند انتهاء الوقت مع حفظ الإجابة المؤقتة
           return 0;
         }
         return prev - 1;
@@ -34,6 +47,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     return () => clearInterval(timer);
   }, [currentQuestionIndex, currentQuestion]);
 
+  // تشغيل الفيديو تلقائياً مع الصوت
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = false;
@@ -46,12 +60,60 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
     }
   }, [currentQuestionIndex]);
 
-  const nextQuestion = () => {
+  // دالة تحديث الاختيار في tempAnswers
+  const handleOptionSelect = (partIndex, option) => {
+    if (viewOnly) return;
+
+    if (currentQuestion.question_type === 'compound') {
+      const updated = [...tempAnswers];
+      updated[partIndex] = option;
+      setTempAnswers(updated);
+    } else {
+      if (currentQuestion.question_type === 'multiple') {
+        const exists = tempAnswers.includes(option);
+        const updated = exists
+          ? tempAnswers.filter((a) => a !== option)
+          : [...tempAnswers, option];
+        setTempAnswers(updated);
+      } else {
+        setTempAnswers([option]);
+      }
+    }
+  };
+
+  // تأكيد الإجابة: حفظ tempAnswers في answers ثم الانتقال للسؤال التالي
+  const confirmAnswer = () => {
+    setAnswers({ ...answers, [currentQuestion.id]: tempAnswers });
+    handleNextQuestion();
+  };
+
+  // إلغاء الإجابة: إعادة tempAnswers إلى الإجابة المسجلة في answers (أو فراغ)
+  const cancelAnswer = () => {
+    if (currentQuestion.question_type === 'compound') {
+      setTempAnswers(answers[currentQuestion.id] || new Array(currentQuestion.parts.length).fill(''));
+    } else {
+      setTempAnswers(answers[currentQuestion.id] || []);
+    }
+  };
+
+  // التالي بدون حفظ الإجابة (يتجاهل tempAnswers)
+  const handleNextQuestion = (autoSave = false) => {
+    if (autoSave) {
+      // حفظ tempAnswers قبل الانتقال
+      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: tempAnswers }));
+    }
     if (currentQuestionIndex < exam.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else if (!viewOnly) {
       onSubmit();
     }
+  };
+
+  // تنسيق الوقت
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -107,53 +169,45 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
 
         {currentQuestion.question_type === 'compound' ? (
           <div className="space-y-6">
-            {currentQuestion.parts.map((part, partIndex) => {
-              return (
-                <div key={partIndex}>
-                  <p className="text-white font-semibold mb-2">{part.prompt}</p>
-                  <div className="space-y-2">
-                    {part.options?.map((option, optIndex) => {
-                      const selected = answers[currentQuestion.id]?.[partIndex] === option;
-
-                      return viewOnly ? (
-                        <div
-                          key={optIndex}
-                          className={`w-full px-4 py-2 rounded-lg border ${
-                            selected
-                              ? 'bg-green-700 border-green-500 text-white'
-                              : 'bg-slate-700 border-slate-600 text-gray-300'
-                          }`}
-                        >
-                          {option}
-                        </div>
-                      ) : (
-                        <button
-                          key={optIndex}
-                          onClick={() => {
-                            const updatedParts = [...(answers[currentQuestion.id] || [])];
-                            updatedParts[partIndex] = option;
-                            setAnswers({ ...answers, [currentQuestion.id]: updatedParts });
-                          }}
-                          className={`block w-full text-right px-4 py-2 rounded-lg border transition-all duration-150 ${
-                            selected
-                              ? 'bg-green-700 border-green-500 text-white'
-                              : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      );
-                    })}
-                  </div>
+            {currentQuestion.parts.map((part, partIndex) => (
+              <div key={partIndex}>
+                <p className="text-white font-semibold mb-2">{part.prompt}</p>
+                <div className="space-y-2">
+                  {part.options?.map((option, optIndex) => {
+                    const selected = tempAnswers[partIndex] === option;
+                    return viewOnly ? (
+                      <div
+                        key={optIndex}
+                        className={`w-full px-4 py-2 rounded-lg border ${
+                          selected
+                            ? 'bg-green-700 border-green-500 text-white'
+                            : 'bg-slate-700 border-slate-600 text-gray-300'
+                        }`}
+                      >
+                        {option}
+                      </div>
+                    ) : (
+                      <button
+                        key={optIndex}
+                        onClick={() => handleOptionSelect(partIndex, option)}
+                        className={`block w-full text-right px-4 py-2 rounded-lg border transition-all duration-150 ${
+                          selected
+                            ? 'bg-green-700 border-green-500 text-white'
+                            : 'bg-slate-700 border-slate-600 text-gray-200 hover:bg-slate-600'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         ) : (
           <div className="space-y-4">
             {currentQuestion.options.map((option, index) => {
-              const isSelected = (answers[currentQuestion.id] || []).includes(option);
-
+              const isSelected = tempAnswers.includes(option);
               return viewOnly ? (
                 <div
                   key={index}
@@ -168,15 +222,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
               ) : (
                 <button
                   key={index}
-                  onClick={() => {
-                    const currentAnswers = answers[currentQuestion.id] || [];
-                    const newAnswers = currentQuestion.question_type === 'multiple'
-                      ? currentAnswers.includes(option)
-                        ? currentAnswers.filter((a) => a !== option)
-                        : [...currentAnswers, option]
-                      : [option];
-                    setAnswers({ ...answers, [currentQuestion.id]: newAnswers });
-                  }}
+                  onClick={() => handleOptionSelect(null, option)}
                   className={`block w-full text-right px-4 py-3 rounded-lg border transition-all duration-150 ${
                     isSelected
                       ? 'bg-green-700 border-green-500 text-white'
@@ -187,6 +233,30 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* أزرار تأكيد، إلغاء، التالي */}
+        {!viewOnly && (
+          <div className="mt-6 flex justify-end gap-4">
+            <button
+              onClick={cancelAnswer}
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2 rounded"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleNextQuestion}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-6 py-2 rounded"
+            >
+              التالي بدون حفظ
+            </button>
+            <button
+              onClick={confirmAnswer}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded"
+            >
+              تأكيد وحفظ
+            </button>
           </div>
         )}
       </Card>
