@@ -11,10 +11,13 @@ import LoginPage from '@/pages/LoginPage';
 import SessionResults from '@/pages/SessionResults';
 import SiteAdminPage from '@/pages/SiteAdminPage';
 import PermanentExamsPage from '@/pages/PermanentExamsPage';
-import ExamVideos from '@/pages/ExamVideos'; // ✅ استيراد الصفحة الجديدة
+import ExamVideos from '@/pages/ExamVideos';
 import { Toaster } from '@/components/ui/toaster';
 
-// ✅ المسار الخاص بالمشرف الإداري
+// ** استيراد المكون الجديد لعرض الفيديوهات بشكل سينمائي **
+import CinematicExamView from '@/components/exam/CinematicExamView';
+
+// المسارات المحمية وأدوار المستخدم
 const AdminRoute = ({ children, session }) => {
   const isAdmin = sessionStorage.getItem('isAdminAccess') === 'true';
   if (!session) return <Navigate to="/login" />;
@@ -22,7 +25,6 @@ const AdminRoute = ({ children, session }) => {
   return children;
 };
 
-// ✅ مسار محمي للمستخدمين المسجلين
 const ProtectedRoute = ({ children, session }) => {
   if (!session) {
     return <Navigate to="/login" />;
@@ -30,7 +32,6 @@ const ProtectedRoute = ({ children, session }) => {
   return children;
 };
 
-// ✅ مسار المشرف العام
 const SiteAdminRoute = ({ children }) => {
   const isSiteAdmin = sessionStorage.getItem('isSiteAdminAccess') === 'true';
   if (!isSiteAdmin) {
@@ -83,26 +84,26 @@ function App() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900">
         <Routes>
-          {/* ✅ صفحة الدخول */}
+          {/* صفحات الدخول */}
           <Route path="/login" element={session ? <Navigate to="/permanent-exams" /> : <LoginPage />} />
           <Route path="/" element={session ? <Navigate to="/permanent-exams" /> : <Navigate to="/login" />} />
 
-          {/* ✅ صفحات المستخدم */}
+          {/* صفحات المستخدم */}
           <Route path="/permanent-exams" element={<ProtectedRoute session={session}><PermanentExamsPage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute session={session}><Dashboard /></ProtectedRoute>} />
           <Route path="/results/:testId" element={<ProtectedRoute session={session}><SessionResults /></ProtectedRoute>} />
 
-          {/* ✅ صفحات المشرف */}
+          {/* صفحات المشرف */}
           <Route path="/admin" element={<AdminRoute session={session}><AdminDashboard /></AdminRoute>} />
           <Route path="/site-admin" element={<SiteAdminRoute><SiteAdminPage /></SiteAdminRoute>} />
 
-          {/* ✅ صفحات الامتحان */}
+          {/* صفحات الامتحان */}
           <Route path="/session/:examId" element={<ExamSession />} />
           <Route path="/exam/:examId" element={<PublicExamPlayer />} />
           <Route path="/exam-videos/:examId" element={<ExamVideos />} />
 
-          {/* ✅ المسار الجديد للجلسات المباشرة بالفيديوهات */}
-          <Route path="/live-session/:sessionId" element={<ExamVideos />} />
+          {/* صفحة عرض الفيديوهات السينمائية */}
+          <Route path="/exam/:examId/cinematic" element={<CinematicExamView />} />
         </Routes>
 
         <Toaster />
