@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+
 import RegistrationStep from '@/components/exam/RegistrationStep';
 import ExamStep from '@/components/exam/ExamStep';
 import CompletionStep from '@/components/exam/CompletionStep';
@@ -28,7 +29,7 @@ const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const skipRegistration = location.state?.skipRegistration || false;
+  const isLiveView = location.state?.skipRegistration || false;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -65,7 +66,7 @@ const ExamSession = () => {
         .eq('test_id', questionSourceId);
 
       if (questionsError) {
-        toast({ title: "خطأ", description: "فشل في تحميل أسئلة الاختبار.", variant: "destructive" });
+        toast({ title: "خطأ", description: "فشل في تحميل الأسئلة.", variant: "destructive" });
         navigate('/');
         return;
       }
@@ -78,8 +79,9 @@ const ExamSession = () => {
           options: q.options || [],
           correct_answers: q.correct_answers || [],
           question_type: q.question_type || 'single',
-          time_limit_seconds: q.time_limit_seconds,
-          video_url: data.with_video ? (q.video_url || null) : null,
+          time_limit_seconds: q.time_limit_seconds || 30,
+          // نعرض الفيديو دائمًا إذا كنا في liveView
+          video_url: isLiveView ? (q.video_url || null) : (data.with_video ? (q.video_url || null) : null),
           explanation: q.explanation || '',
           explanation_video_url: q.explanation_video_url || '',
           parts: q.parts || []
@@ -90,30 +92,12 @@ const ExamSession = () => {
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
 
-      if (skipRegistration) {
-        const tempInfo = { name: 'مشارك مباشر', phone: '', email: '' };
+      if (isLiveView) {
+        const tempInfo = { name: 'عرض الجلسة', phone: '', email: '' };
         setStudentInfo(tempInfo);
-
-        const participantData = data.is_restricted_by_email
-          ? { session_id: examId, email: tempInfo.email.trim().toLowerCase(), session_user_id: data.user_id }
-          : { session_id: examId, name: tempInfo.name, phone_number: tempInfo.phone, session_user_id: data.user_id };
-
-        const { data: participant, error: participantError } = await supabase
-          .from('session_participants')
-          .insert([participantData])
-          .select('id')
-          .single();
-
-        if (participantError || !participant) {
-          toast({ title: "خطأ", description: `فشل في تسجيل المشارك: ${participantError?.message}`, variant: "destructive" });
-          navigate('/');
-          return;
-        }
-
-        setParticipantId(participant.id);
         setExamStartTime(Date.now());
-        setCurrentStep('start'); // ⬅️ نبدأ بخطوة البدء
-        toast({ title: "جاهز للبدء!", description: "اضغط على زر 'ابدأ الاختبار' لتشغيل الفيديوهات تلقائياً" });
+        setCurrentStep('exam'); // نبدأ مباشرة في عرض الفيديوهات
+        return;
       }
     };
 
@@ -122,7 +106,7 @@ const ExamSession = () => {
       toast({ title: "خطأ", description: "معرف الجلسة مفقود", variant: "destructive" });
       navigate('/');
     }
-  }, [examId, navigate, skipRegistration]);
+  }, [examId, navigate, isLiveView]);
 
   useEffect(() => {
     let timer;
@@ -151,7 +135,7 @@ const ExamSession = () => {
         return;
       }
       if (!exam.allowed_emails || !exam.allowed_emails.includes(userEmail)) {
-        toast({ title: "خطأ", description: "هذا البريد الإلكتروني غير مسموح له بإجراء هذا الاختبار.", variant: "destructive" });
+        toast({ title: "خطأ", description: "هذا البريد الإلكتروني غير مسموح له بالمشاركة.", variant: "destructive" });
         return;
       }
     } else {
@@ -177,8 +161,8 @@ const ExamSession = () => {
 
     setParticipantId(data.id);
     setExamStartTime(Date.now());
-    setCurrentStep('start'); // ⬅️ نبدأ من صفحة البداية
-    toast({ title: "جاهز للبدء!", description: "اضغط على زر 'ابدأ الاختبار' لتشغيل الفيديوهات تلقائياً" });
+    setCurrentStep('start');
+    toast({ title: "جاهز!", description: "اضغط على 'ابدأ الاختبار' لتشغيل الفيديوهات تلقائيًا." });
   };
 
   const submitExam = async () => {
@@ -205,21 +189,19 @@ const ExamSession = () => {
         submitted_at: new Date().toISOString()
       }]);
       if (error) {
-        toast({ title: "خطأ", description: `فشل في حفظ نتيجة الاختبار: ${error.message}`, variant: "destructive" });
+        toast({ title: "خطأ", description: `فشل في حفظ النتيجة: ${error.message}`, variant: "destructive" });
       }
     }
 
     setCurrentStep('completed');
-    toast({ title: "تم إنهاء الاختبار! 🎉", description: `نتيجتك: ${score}/${exam.questions.length} - نسبة النجاح: ${percentage}%` });
+    toast({ title: "انتهى الاختبار!", description: `النتيجة: ${score}/${exam.questions.length}` });
   };
 
   if (loading || !exam) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p>جاري تحميل الجلسة...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+        <p>جاري تحميل الجلسة...</p>
       </div>
     );
   }
@@ -227,10 +209,10 @@ const ExamSession = () => {
   return (
     <div className="min-h-screen p-4 flex flex-col items-center justify-center">
       <AnimatePresence mode="wait">
-        {currentStep === 'registration' && (
+        {!isLiveView && currentStep === 'registration' && (
           <RegistrationStep key="registration" exam={exam} onSubmit={handleRegistrationSubmit} />
         )}
-        {currentStep === 'start' && (
+        {!isLiveView && currentStep === 'start' && (
           <motion.div
             key="start"
             initial={{ opacity: 0, y: 20 }}
@@ -240,21 +222,21 @@ const ExamSession = () => {
           >
             <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm">
               <h2 className="text-2xl font-bold text-white mb-4">هل أنت مستعد؟</h2>
-              <p className="text-gray-300 mb-6">عند الضغط على الزر، سيبدأ الاختبار وسيتم تشغيل الفيديوهات تلقائيًا مع الصوت.</p>
+              <p className="text-gray-300 mb-6">اضغط على الزر لبدء الاختبار وتشغيل الفيديوهات تلقائيًا.</p>
               <Button
                 onClick={() => {
                   setExamStartTime(Date.now());
                   setCurrentStep('exam');
-                  toast({ title: "بدء الاختبار! 🚀", description: "بالتوفيق!" });
+                  toast({ title: "تم البدء", description: "بالتوفيق!" });
                 }}
-                className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 ابدأ الاختبار
               </Button>
             </Card>
           </motion.div>
         )}
-        {currentStep === 'exam' && exam.questions && exam.questions.length > 0 && (
+        {currentStep === 'exam' && exam.questions.length > 0 && (
           <ExamStep
             key="exam"
             exam={exam}
@@ -263,6 +245,7 @@ const ExamSession = () => {
             answers={answers}
             setAnswers={setAnswers}
             onSubmit={submitExam}
+            viewOnly={isLiveView} // ⬅️ تمرير الحالة هنا
           />
         )}
         {currentStep === 'completed' && (
