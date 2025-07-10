@@ -4,7 +4,7 @@ import { ArrowRight, ArrowLeft, CheckCircle, RotateCcw, Clock } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, onlyVideoMode = false }) => {
+const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
@@ -135,8 +135,8 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
       </div>
 
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
-        {/* ✅ الفيديو يُعرض فقط إذا لم يكن onlyVideoMode مفعّلاً */}
-        {currentQuestion.video_url && !onlyVideoMode && (
+        {/* ✅ تشغيل الفيديو تلقائيًا بالصوت */}
+        {currentQuestion.video_url && (
           <div className="mb-6">
             <video
               key={currentQuestion.video_url}
