@@ -12,7 +12,6 @@ const ExamSession = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const skipRegistration = location.state?.skipRegistration || false;
-  const onlyVideoMode = location.state?.onlyVideoMode || false;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -108,7 +107,7 @@ const ExamSession = () => {
       setParticipantId(part.id);
       setExamStartTime(Date.now());
       setCurrentStep('exam');
-      toast({ title: "بدء الجلسة", description: "تم البدء بنجاح." });
+      toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
     }
 
     fetchExamDetails();
@@ -161,17 +160,11 @@ const ExamSession = () => {
     setParticipantId(part.id);
     setExamStartTime(Date.now());
     setCurrentStep('exam');
-    toast({ title: "بدء الاختبار", description: "بالتوفيق!" });
+    toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً" });
   };
 
   const handleSubmit = async () => {
     if (!exam || currentStep !== 'exam') return;
-
-    if (onlyVideoMode) {
-      setCurrentStep('completed');
-      return;
-    }
-
     const total = exam.questions.length;
     let correctCount = 0;
     exam.questions.forEach(q => {
@@ -214,10 +207,9 @@ const ExamSession = () => {
             exam={exam}
             studentInfo={studentInfo}
             timeLeft={timeLeft}
-            answers={onlyVideoMode ? {} : answers}
-            setAnswers={onlyVideoMode ? () => {} : setAnswers}
+            answers={answers}
+            setAnswers={setAnswers}
             onSubmit={handleSubmit}
-            onlyVideoMode={onlyVideoMode} // ✅ هذا هو المفتاح اللي غادي نحكمو به
           />
         )}
         {currentStep === 'completed' && <CompletionStep key="completed" studentInfo={studentInfo} />}
