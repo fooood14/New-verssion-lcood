@@ -10,7 +10,6 @@ import RegistrationStep from '@/components/exam/RegistrationStep';
 import ExamStep from '@/components/exam/ExamStep';
 import CompletionStep from '@/components/exam/CompletionStep';
 
-// ✅ تصحيح دالة التقييم
 const normalize = (val) =>
   typeof val === 'string' ? val.trim().toLowerCase() : val;
 
@@ -103,6 +102,21 @@ const ExamSession = () => {
       if (isLiveView) {
         const tempInfo = { name: 'عرض الجلسة', phone: '', email: '' };
         setStudentInfo(tempInfo);
+
+        // ✅ تسجيل الجلسة المباشرة كمشارك في Supabase
+        const { data: participant, error: partError } = await supabase
+          .from('session_participants')
+          .insert([{ session_id: examId, name: 'عرض الجلسة', phone_number: '', session_user_id: data.user_id }])
+          .select('id')
+          .single();
+
+        if (partError || !participant) {
+          toast({ title: 'خطأ', description: 'فشل في تسجيل جلسة العرض المباشر', variant: 'destructive' });
+          navigate('/');
+          return;
+        }
+
+        setParticipantId(participant.id);
         setExamStartTime(Date.now());
         setCurrentStep('exam');
         return;
