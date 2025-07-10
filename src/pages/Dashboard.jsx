@@ -134,7 +134,7 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ محدث لدعم withVideo
+  // تعديل هنا: دعم withVideo وتمرير الحالة عبر التنقل
   const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
     if (!user) return;
 
@@ -157,9 +157,18 @@ const Dashboard = () => {
         return;
       }
 
-      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن لشاشة المراقبة.' });
-      navigate(`/results/${newSessionTest.id}`);
+      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن إلى الجلسة.' });
+
+      // التوجيه مع حالة العرض (بالفيديو أو بدون فيديو) + تجاوز التسجيل
+      navigate(`/session/${newSessionTest.id}`, {
+        state: {
+          skipRegistration: true,
+          onlyVideoMode: withVideo
+        }
+      });
+
     } else {
+      // نسخ رابط الجلسة العادي فقط
       const link = `${window.location.origin}/session/${exam.id}`;
       navigator.clipboard.writeText(link);
       toast({ title: 'تم النسخ!', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
@@ -225,7 +234,7 @@ const Dashboard = () => {
                 onDelete={handleDelete}
                 onCopyLink={handleCreateSessionOrCopyLink}
                 onViewResults={handleViewResults}
-                onStartSession={handleCreateSessionOrCopyLink} // ✅ تمرير الدالة بنجاح
+                onStartSession={handleCreateSessionOrCopyLink} // تمرير الدالة للبدء مع أو بدون فيديو
               />
             ))}
           </div>
