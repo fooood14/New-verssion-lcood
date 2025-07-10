@@ -10,19 +10,27 @@ import RegistrationStep from '@/components/exam/RegistrationStep';
 import ExamStep from '@/components/exam/ExamStep';
 import CompletionStep from '@/components/exam/CompletionStep';
 
+// ✅ تصحيح دالة التقييم
+const normalize = (val) =>
+  typeof val === 'string' ? val.trim().toLowerCase() : val;
+
 const isCorrect = (userAnswers, correctAnswers, question) => {
   if (!question) return false;
 
   if (question.question_type === 'compound') {
     if (!Array.isArray(question.parts) || !Array.isArray(userAnswers)) return false;
-    return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
+    return question.parts.every((part, idx) =>
+      normalize(userAnswers[idx]) === normalize(part.correct_answer)
+    );
   }
 
   if (!userAnswers || !correctAnswers) return false;
-  if (userAnswers.length !== correctAnswers.length) return false;
-  const sortedUserAnswers = [...userAnswers].sort();
-  const sortedCorrectAnswers = [...correctAnswers].sort();
-  return sortedUserAnswers.every((val, index) => val === sortedCorrectAnswers[index]);
+
+  const sortedUser = (userAnswers || []).map(normalize).sort();
+  const sortedCorrect = (correctAnswers || []).map(normalize).sort();
+
+  return sortedUser.length === sortedCorrect.length &&
+         sortedUser.every((val, index) => val === sortedCorrect[index]);
 };
 
 const ExamSession = () => {
