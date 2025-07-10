@@ -11,7 +11,10 @@ const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const skipRegistration = location.state?.skipRegistration || false;
+
+  const queryParams = new URLSearchParams(location.search);
+  const viewOnly = queryParams.get('viewOnly') === 'true';
+  const skipRegistration = location.state?.skipRegistration || viewOnly;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -107,7 +110,9 @@ const ExamSession = () => {
       setParticipantId(part.id);
       setExamStartTime(Date.now());
       setCurrentStep('exam');
-      toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+      if (!viewOnly) {
+        toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+      }
     }
 
     fetchExamDetails();
@@ -210,6 +215,7 @@ const ExamSession = () => {
             answers={answers}
             setAnswers={setAnswers}
             onSubmit={handleSubmit}
+            viewOnly={viewOnly} // ✅ ممررة هنا
           />
         )}
         {currentStep === 'completed' && <CompletionStep key="completed" studentInfo={studentInfo} />}
