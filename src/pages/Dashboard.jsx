@@ -37,40 +37,55 @@ const Dashboard = () => {
 
   const fetchExams = async (userId) => {
     setLoading(true);
-    const { data: userTests } = await supabase
+    const { data: userTests, error: userTestsError } = await supabase
       .from('tests')
       .select('*, questions(id)')
       .eq('user_id', userId)
       .neq('is_permanent', true);
 
-    const { data: permanentTests } = await supabase
+    if (userTestsError) {
+      toast({ title: 'خطأ في تحميل اختباراتك', description: userTestsError.message, variant: 'destructive' });
+    }
+
+    const { data: permanentTests, error: permanentTestsError } = await supabase
       .from('tests')
       .select('*, questions(id)')
       .eq('is_permanent', true);
+
+    if (permanentTestsError) {
+      toast({ title: 'خطأ في تحميل الاختبارات الثابتة', description: permanentTestsError.message, variant: 'destructive' });
+    }
 
     const allExams = [...(userTests || []), ...(permanentTests || [])];
     const uniqueExams = Array.from(new Map(allExams.map(exam => [exam.id, exam])).values());
 
     const examsWithParticipants = await Promise.all(uniqueExams.map(async (exam) => {
       let participantsCount = 0;
+
       if (exam.is_permanent) {
         const { data: sessionTests } = await supabase
           .from('tests')
           .select('id')
           .eq('original_test_id', exam.id);
-        const sessionIds = sessionTests.map(t => t.id);
-        const { data: results } = await supabase
-          .from('test_results')
-          .select('participant_id')
-          .in('test_id', sessionIds);
-        participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
+
+        if (sessionTests && sessionTests.length > 0) {
+          const sessionIds = sessionTests.map(t => t.id);
+          const { data: results } = await supabase
+            .from('test_results')
+            .select('participant_id')
+            .in('test_id', sessionIds);
+
+          participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
+        }
       } else {
         const { data: results } = await supabase
           .from('test_results')
           .select('participant_id')
           .eq('test_id', exam.id);
+
         participantsCount = results ? new Set(results.map(r => r.participant_id)).size : 0;
       }
+
       return { ...exam, participantsCount };
     }));
 
@@ -86,20 +101,29 @@ const Dashboard = () => {
 
     let allSessionTestIds = [];
     if (permanentTestIds.length > 0) {
-      const { data: sessionTests } = await supabase
-        .from('tests')
-        .select('id')
-        .in('original_test_id', permanentTestIds)
-        .eq('user_id', userId);
-      allSessionTestIds = sessionTests.map(t => t.id);
+      const { data: sessionTests } = await supabase.from('tests').select('id').in('original_test_id', permanentTestIds).eq('user_id', userId);
+      if (sessionTests) {
+        allSessionTestIds = sessionTests.map(t => t.id);
+      }
     }
 
     const relevantTestIds = [...new Set([...userExamIds, ...allSessionTestIds])];
 
-    const { data: results } = await supabase
+    if (relevantTestIds.length === 0) {
+      setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
+      return;
+    }
+
+    const { data: results, error } = await supabase
       .from('test_results')
       .select('percentage, participant_id')
       .in('test_id', relevantTestIds);
+
+    if (error) {
+      console.error("Error fetching results for stats:", error);
+      setStats({ totalTests: allExams.length, totalParticipants: 0, averageScore: 0 });
+      return;
+    }
 
     const totalParticipants = results ? new Set(results.map(r => r.participant_id)).size : 0;
     const totalScore = results ? results.reduce((acc, r) => acc + r.percentage, 0) : 0;
@@ -134,7 +158,7 @@ const Dashboard = () => {
     }
   };
 
-  // تعديل هنا: دعم withVideo وتمرير الحالة عبر التنقل
+  // ✅ محدث لدعم withVideo
   const handleCreateSessionOrCopyLink = async (exam, withVideo = false) => {
     if (!user) return;
 
@@ -147,7 +171,7 @@ const Dashboard = () => {
           user_id: user.id,
           is_permanent: false,
           original_test_id: exam.id,
-          with_video: withVideo
+          with_video: withVideo // ✅ نمرر القيمة
         })
         .select('id')
         .single();
@@ -157,18 +181,9 @@ const Dashboard = () => {
         return;
       }
 
-      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن إلى الجلسة.' });
-
-      // التوجيه مع حالة العرض (بالفيديو أو بدون فيديو) + تجاوز التسجيل
-      navigate(`/session/${newSessionTest.id}`, {
-        state: {
-          skipRegistration: true,
-          onlyVideoMode: withVideo
-        }
-      });
-
+      toast({ title: 'تم إنشاء الجلسة!', description: 'سيتم توجيهك الآن لشاشة المراقبة.' });
+      navigate(`/results/${newSessionTest.id}`);
     } else {
-      // نسخ رابط الجلسة العادي فقط
       const link = `${window.location.origin}/session/${exam.id}`;
       navigator.clipboard.writeText(link);
       toast({ title: 'تم النسخ!', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
@@ -190,7 +205,11 @@ const Dashboard = () => {
           <Button variant="ghost" size="icon" onClick={handleAdminAccess} className="text-slate-300 hover:bg-slate-700 hover:text-yellow-400">
             <Shield className="h-6 w-6" />
           </Button>
-          <Button onClick={handleSignOut} variant="outline" className="text-slate-300 border-slate-600 hover:bg-slate-700 flex-1 sm:flex-none">
+          <Button 
+            onClick={handleSignOut} 
+            variant="outline" 
+            className="text-slate-300 border-slate-600 hover:bg-slate-700 flex-1 sm:flex-none"
+          >
             <LogOut className="w-4 h-4 ml-2" />
             تسجيل الخروج
           </Button>
@@ -204,8 +223,8 @@ const Dashboard = () => {
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
           <h2 className="text-xl sm:text-2xl font-semibold text-white">اختباراتك</h2>
-          <Button
-            onClick={() => setShowCreateDialog(true)}
+          <Button 
+            onClick={() => setShowCreateDialog(true)} 
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-full sm:w-auto"
           >
             <Plus className="w-4 h-4 ml-2" />
@@ -234,7 +253,7 @@ const Dashboard = () => {
                 onDelete={handleDelete}
                 onCopyLink={handleCreateSessionOrCopyLink}
                 onViewResults={handleViewResults}
-                onStartSession={handleCreateSessionOrCopyLink} // تمرير الدالة للبدء مع أو بدون فيديو
+                onStartSession={handleCreateSessionOrCopyLink}
               />
             ))}
           </div>
