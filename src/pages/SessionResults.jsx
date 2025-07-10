@@ -1,10 +1,37 @@
-// ... باقي الاستيرادات كما هي ...
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabaseClient';
+import { toast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
 import {
-  // ...
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
+import {
+  ArrowRight,
+  BarChart2,
+  Copy,
   FileDown,
+  RotateCw,
   Play
 } from 'lucide-react';
-// ... باقي الاستيرادات كما هي ...
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const SessionResults = () => {
   const { testId } = useParams();
@@ -12,159 +39,36 @@ const SessionResults = () => {
   const [test, setTest] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [subscribedChannel, setSubscribedChannel] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const isCorrect = (userAnswers = [], correctAnswers = [], question) => {
-    if (!question) return false;
-    if (question.question_type === 'compound') {
-      if (!Array.isArray(question.parts) || !Array.isArray(userAnswers)) return false;
-      return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
-    }
-    if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
-    if (userAnswers.length !== correctAnswers.length) return false;
-    const sortedUser = [...userAnswers].sort();
-    const sortedCorrect = [...correctAnswers].sort();
-    return sortedUser.every((val, i) => val === sortedCorrect[i]);
-  };
-
-  const questionsMap = useMemo(() => {
-    if (!test || !test.questions) return new Map();
-    return new Map(test.questions.map(q => [q.id, q]));
-  }, [test]);
-
-  const fetchAndSetData = async () => {
-    setLoading(true);
-    const { data: testData, error: testError } = await supabase
-      .from('tests')
-      .select('*, questions(*)')
-      .eq('id', testId)
-      .single();
-
-    if (testError || !testData) {
-      toast({ title: 'خطأ', description: 'لم يتم العثور على الاختبار.', variant: 'destructive' });
-      navigate('/dashboard');
-      return;
-    }
-
-    const questionSourceId = testData.original_test_id || testData.id;
-    const { data: questionsData } = await supabase
-      .from('questions')
-      .select('*')
-      .eq('test_id', questionSourceId);
-
-    const sortedQuestions = (questionsData || []).sort((a, b) =>
-      (a.id || '').localeCompare(b.id || '')
-    );
-    setTest({ ...testData, questions: sortedQuestions });
-
-    const { data: resultsData } = await supabase
-      .from('test_results')
-      .select('*, session_participants(name, phone_number)')
-      .in('test_id', [testId])
-      .order('submitted_at', { ascending: false });
-
-    setResults(resultsData || []);
-
-    if (subscribedChannel) supabase.removeChannel(subscribedChannel);
-    const channel = supabase
-      .channel(`session_results_channel_for_${testId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'test_results',
-          filter: `test_id=eq.${testId}`,
-        },
-        async (payload) => {
-          const { data: participantData } = await supabase
-            .from('session_participants')
-            .select('name, phone_number')
-            .eq('id', payload.new.participant_id)
-            .single();
-
-          const newResult = {
-            ...payload.new,
-            session_participants: participantData,
-          };
-
-          setResults((currentResults) =>
-            [newResult, ...currentResults].sort(
-              (a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)
-            )
-          );
-
-          if (participantData) {
-            toast({
-              title: 'نتيجة جديدة!',
-              description: `المشارك ${participantData.name} أنهى الاختبار.`,
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    setSubscribedChannel(channel);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    fetchAndSetData();
-    return () => {
-      if (subscribedChannel) supabase.removeChannel(subscribedChannel);
+    const fetchData = async () => {
+      setLoading(true);
+      const { data: testData, error } = await supabase
+        .from('tests')
+        .select('*')
+        .eq('id', testId)
+        .single();
+
+      if (error || !testData) {
+        toast({ title: 'خطأ', description: 'لم يتم العثور على الاختبار.', variant: 'destructive' });
+        navigate('/dashboard');
+        return;
+      }
+
+      setTest(testData);
+
+      const { data: resultsData } = await supabase
+        .from('test_results')
+        .select('id')
+        .eq('test_id', testId);
+
+      setResults(resultsData || []);
+      setLoading(false);
     };
+
+    fetchData();
   }, [testId, navigate]);
-
-  const handleResetSession = async () => {
-    await supabase.from('test_results').delete().eq('test_id', testId);
-    await supabase.from('session_participants').delete().eq('session_id', testId);
-    setResults([]);
-    toast({ title: 'تم بنجاح', description: 'تم مسح جميع نتائج هذه الجلسة.' });
-  };
-
-  const handleExportToPDF = () => {
-    if (isExporting) return;
-    setIsExporting(true);
-    const resultsContainer = document.getElementById('results-container');
-    if (!resultsContainer) return;
-
-    toast({ title: 'جاري التصدير...', description: 'قد تستغرق العملية بضع لحظات.' });
-
-    html2canvas(resultsContainer, {
-      backgroundColor: '#0f172a',
-      scale: 2,
-      useCORS: true,
-    })
-      .then((canvas) => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        let heightLeft = pdfHeight;
-        let position = 0;
-        const pageHeight = pdf.internal.pageSize.getHeight();
-
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0) {
-          position -= pageHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-        }
-
-        pdf.save(`نتائج-${test.title}.pdf`);
-        setIsExporting(false);
-        toast({ title: 'تم التصدير', description: 'تم إنشاء ملف PDF بنجاح.' });
-      })
-      .catch(() => {
-        toast({ title: 'خطأ', description: 'حدث خطأ أثناء تصدير النتائج.', variant: 'destructive' });
-        setIsExporting(false);
-      });
-  };
 
   const handleCopyLink = () => {
     const link = `${window.location.origin}/session/${testId}`;
@@ -172,11 +76,36 @@ const SessionResults = () => {
     toast({ title: 'تم النسخ!', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
   };
 
-  const handleDeleteResult = async (resultId, participantId) => {
-    await supabase.from('test_results').delete().eq('id', resultId);
-    await supabase.from('session_participants').delete().eq('id', participantId);
-    setResults((prev) => prev.filter((r) => r.id !== resultId));
-    toast({ title: 'تم الحذف', description: 'تم حذف نتيجة المشارك.' });
+  const handleExportToPDF = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    const container = document.getElementById('results-container');
+    if (!container) return;
+
+    toast({ title: 'جاري التصدير', description: 'يرجى الانتظار...' });
+
+    const canvas = await html2canvas(container, { backgroundColor: '#0f172a', scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`نتائج-${test.title}.pdf`);
+    setIsExporting(false);
+    toast({ title: 'تم الحفظ', description: 'تم حفظ الملف بنجاح.' });
+  };
+
+  const handleResetSession = async () => {
+    const { error: error1 } = await supabase.from('test_results').delete().eq('test_id', testId);
+    const { error: error2 } = await supabase.from('session_participants').delete().eq('session_id', testId);
+    if (error1 || error2) {
+      toast({ title: 'خطأ', description: 'فشل في إعادة التعيين.', variant: 'destructive' });
+    } else {
+      setResults([]);
+      toast({ title: 'تم', description: 'تمت إعادة تعيين الجلسة.' });
+    }
   };
 
   if (loading || !test) {
@@ -189,16 +118,8 @@ const SessionResults = () => {
 
   return (
     <div className="min-h-screen p-6 pt-12 md:pt-24">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative text-center mb-8"
-      >
-        <Button
-          onClick={() => navigate('/dashboard')}
-          variant="outline"
-          className="absolute top-0 right-0 text-slate-300 border-slate-600 hover:bg-slate-700"
-        >
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative text-center mb-8">
+        <Button onClick={() => navigate('/dashboard')} variant="outline" className="absolute top-0 right-0 text-slate-300 border-slate-600 hover:bg-slate-700">
           <ArrowRight className="w-4 h-4 ml-2" /> العودة
         </Button>
         <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent mb-2">
@@ -228,20 +149,14 @@ const SessionResults = () => {
                 onClick={handleExportToPDF}
                 disabled={isExporting}
               >
-                {isExporting ? (
-                  'جاري التصدير...'
-                ) : (
-                  <>
-                    <FileDown className="w-4 h-4 ml-2" /> تصدير PDF
-                  </>
-                )}
+                <FileDown className="w-4 h-4 ml-2" /> تصدير PDF
               </Button>
               <Button
+                variant="outline"
+                className="text-yellow-400 border-yellow-500 hover:bg-yellow-500/20"
                 onClick={() => navigate(`/session/${testId}?viewOnly=true`)}
-                className="bg-yellow-600 hover:bg-yellow-700 text-white"
               >
-                <Play className="w-4 h-4 ml-2" />
-                عرض الجلسة
+                <Play className="w-4 h-4 ml-2" /> عرض الجلسة
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -256,7 +171,7 @@ const SessionResults = () => {
                 <AlertDialogContent className="bg-slate-900 border-slate-700 text-white">
                   <AlertDialogHeader>
                     <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                    <AlertDialogDescription>سيتم حذف جميع نتائج المشاركين في هذه الجلسة بشكل نهائي.</AlertDialogDescription>
+                    <AlertDialogDescription>سيتم حذف جميع النتائج.</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>إلغاء</AlertDialogCancel>
@@ -273,9 +188,18 @@ const SessionResults = () => {
           </CardHeader>
         </Card>
 
-        {/* النتائج (تبقى كما هي) */}
         <div id="results-container">
-          {/* ... باقي الكود الخاص بالنتائج والمراجعة ... */}
+          {results.length === 0 ? (
+            <Card className="text-center p-8 bg-slate-800/50 border-slate-700">
+              <BarChart2 className="w-16 h-16 mx-auto text-slate-500 mb-4" />
+              <CardTitle className="text-2xl text-white">في انتظار المشاركين...</CardTitle>
+              <CardDescription className="text-slate-400 mt-2">
+                شارك رابط الجلسة وانتظر ظهور النتائج هنا.
+              </CardDescription>
+            </Card>
+          ) : (
+            <p className="text-white text-center mt-8">تم استقبال {results.length} نتيجة.</p>
+          )}
         </div>
       </div>
     </div>
