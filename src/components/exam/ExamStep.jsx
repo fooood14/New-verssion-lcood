@@ -86,16 +86,15 @@ const ExamStep = ({
   const confirmAndNext = () => {
     const updatedAnswers = {
       ...answers,
-      [currentQuestion.id]: [...tempAnswers], // نسخ مضمون للإجابة
+      [currentQuestion.id]: [...tempAnswers],
     };
-
     setAnswers(updatedAnswers);
 
     setTimeout(() => {
       if (currentQuestionIndex < exam.questions.length - 1) {
         setCurrentQuestionIndex((prev) => prev + 1);
       } else if (!viewOnly) {
-        onSubmit(updatedAnswers); // تمرير الإجابات المحدثة
+        onSubmit(updatedAnswers);
       }
     }, 0);
   };
