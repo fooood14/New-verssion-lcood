@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Eye, Users, Clock, Share2, Trash2, Copy, BarChart2, Star, Play } from 'lucide-react';
+import {
+  Eye,
+  Users,
+  Clock,
+  Share2,
+  Trash2,
+  Copy,
+  BarChart2,
+  Star,
+  Play,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 
 const ExamCard = ({
   exam,
@@ -18,17 +21,8 @@ const ExamCard = ({
   onCopyLink,
   onViewResults,
   isOwner,
-  onStartSession, // ✅ تأتي من Dashboard لبدء الجلسة
+  onStartSession, // ✅ دالة إنشاء الجلسة تأتي من Dashboard
 }) => {
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  const handleStartSession = (withVideo) => {
-    setDialogOpen(false);
-    if (onStartSession) {
-      onStartSession(exam, withVideo); // ✅ نمرر معلمة الفيديو
-    }
-  };
-
   return (
     <motion.div
       key={exam.id}
@@ -100,41 +94,13 @@ const ExamCard = ({
 
         <div className="mt-4 pt-4 border-t border-slate-700">
           {exam.is_permanent ? (
-            <>
-              <Button
-                onClick={() => setDialogOpen(true)}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-              >
-                <Play className="w-4 h-4 ml-2" />
-                إنشاء جلسة مباشرة
-              </Button>
-
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="bg-slate-900 border-slate-700 text-white">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl">طريقة عرض الجلسة</DialogTitle>
-                  </DialogHeader>
-                  <p className="text-slate-400 text-sm mt-2 mb-4">
-                    هل ترغب في عرض فيديوهات الأسئلة أثناء الجلسة؟
-                  </p>
-                  <DialogFooter className="flex flex-col sm:flex-row justify-end gap-2">
-                    <Button
-                      onClick={() => handleStartSession(false)}
-                      variant="outline"
-                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                    >
-                      بدون فيديو
-                    </Button>
-                    <Button
-                      onClick={() => handleStartSession(true)}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                    >
-                      بالفيديو
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </>
+            <Button
+              onClick={() => onStartSession(exam, true)} // ✅ إنشاء جلسة مباشرة مع الفيديو (أو false لبدون فيديو)
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              <Play className="w-4 h-4 ml-2" />
+              إنشاء جلسة مباشرة
+            </Button>
           ) : (
             <div className="flex gap-2 flex-wrap">
               <Button
