@@ -181,8 +181,10 @@ const Dashboard = () => {
         return;
       }
 
-      toast({ title: 'تم إنشاء الجلسة', description: 'تمت إضافة الجلسة إلى لوحة التحكم.' });
-      fetchExams(user.id); // تحديث القائمة
+      toast({ title: 'تم إنشاء الجلسة', description: 'يمكنك الآن عرض الجلسة من القائمة.' });
+
+      // لا توجيه هنا (التوجيه سيتم عند الضغط على "عرض الجلسة")
+      fetchExams(user.id);
     } else {
       const link = `${window.location.origin}/session/${exam.id}`;
       navigator.clipboard.writeText(link);
@@ -191,7 +193,7 @@ const Dashboard = () => {
   };
 
   const handleViewLiveSession = (exam) => {
-    navigate(`/live-session/${exam.id}`, { state: { exam } });
+    navigate(`/session/${exam.id}`, { state: { skipRegistration: true } });
   };
 
   const handleViewResults = (examId) => {
