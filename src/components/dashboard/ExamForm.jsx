@@ -124,14 +124,14 @@ const ExamForm = ({ onExamCreated, onCancel, userId }) => {
         toast({ title: "خطأ في إنشاء الاختبار", description: testError.message, variant: "destructive" });
         setIsSubmitting(false); return;
     }
-
-    const questionsToInsert = questions.map(q => ({
-        test_id: testData.id,
-        question_text: q.question,
-        options: q.options,
-        correct_answers: q.correct_answers,
-        question_type: q.question_type
-    }));
+    const questionsToInsert = questions.map((q, index) => ({
+  test_id: testData.id,
+  question_text: q.question,
+  options: q.options,
+  correct_answers: q.correct_answers,
+  question_type: q.question_type,
+  order: index // 👈 هذا هو الترتيب حسب ما دار المستخدم
+}));
 
     const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert);
 
