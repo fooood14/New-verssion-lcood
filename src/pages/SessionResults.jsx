@@ -73,7 +73,7 @@ const SessionResults = () => {
   const handleCopyLink = () => {
     const link = `${window.location.origin}/session/${testId}`;
     navigator.clipboard.writeText(link);
-    toast({ title: 'تم النسخ!', description: 'تم نسخ رابط الاختبار كامل إلى الحافظة.' });
+    toast({ title: 'تم النسخ!', description: 'تم نسخ رابط الجلسة إلى الحافظة.' });
   };
 
   const handleExportToPDF = async () => {
