@@ -111,78 +111,74 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
         {!viewOnly && (
           <>
             <h3 className="text-xl font-semibold text-white text-right mb-4">{currentQuestion.question}</h3>
-            {/* هنا تضيف كود عرض الخيارات */}
-{currentQuestion.question_type === 'compound' ? (
-  <div className="flex flex-col gap-6">
-    {currentQuestion.parts.map((part, partIdx) => {
-      const partAnswers = (answers[currentQuestion.id] && answers[currentQuestion.id][partIdx]) ? [answers[currentQuestion.id][partIdx]] : [];
-      return (
-        <div key={partIdx}>
-          <h4 className="text-lg font-semibold text-white mb-2">{part.part_text}</h4>
-          <div className="flex flex-col gap-2">
-            {part.options.map((option, idx) => {
-              const selected = partAnswers.includes(option);
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  className={`text-right p-3 rounded-md border 
-                    ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'}`}
-                  onClick={() => {
-                    setAnswers(prev => {
-                      const prevAnswersForQuestion = prev[currentQuestion.id] ? [...prev[currentQuestion.id]] : [];
-                      if (selected) {
-                        // إزالة الاختيار الحالي
-                        prevAnswersForQuestion[partIdx] = null;
-                      } else {
-                        // تعيين الاختيار الحالي
-                        prevAnswersForQuestion[partIdx] = option;
-                      }
-                      return { ...prev, [currentQuestion.id]: prevAnswersForQuestion };
-                    });
-                  }}
-                >
-                  {option}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      );
-    })}
-  </div>
-) : (
-  <div className="flex flex-col gap-3">
-    {currentQuestion.options.map((option, idx) => {
-      const selected = currentAnswers.includes(option);
-      return (
-        <button
-          key={idx}
-          type="button"
-          className={`text-right p-3 rounded-md border 
-            ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'}`}
-          onClick={() => {
-            if (selected) {
-              setAnswers(prev => {
-                const newAns = prev[currentQuestion.id]?.filter(o => o !== option) || [];
-                return { ...prev, [currentQuestion.id]: newAns };
-              });
-            } else {
-              setAnswers(prev => {
-                const newAns = prev[currentQuestion.id] ? [...prev[currentQuestion.id], option] : [option];
-                return { ...prev, [currentQuestion.id]: newAns };
-              });
-            }
-          }}
-        >
-          {option}
-        </button>
-      );
-    })}
-  </div>
-)}
-
-
+            {currentQuestion.question_type === 'compound' ? (
+              <div className="flex flex-col gap-6">
+                {currentQuestion.parts.map((part, partIdx) => {
+                  const partAnswers = (answers[currentQuestion.id] && answers[currentQuestion.id][partIdx]) ? [answers[currentQuestion.id][partIdx]] : [];
+                  return (
+                    <div key={partIdx}>
+                      <h4 className="text-lg font-semibold text-white mb-2">{part.part_text}</h4>
+                      <div className="flex flex-col gap-2">
+                        {part.options.map((option, idx) => {
+                          const selected = partAnswers.includes(option);
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              className={`text-right p-3 rounded-md border 
+                                ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                              onClick={() => {
+                                setAnswers(prev => {
+                                  const prevAnswersForQuestion = prev[currentQuestion.id] ? [...prev[currentQuestion.id]] : [];
+                                  if (selected) {
+                                    // تعيين نص فارغ بدل null
+                                    prevAnswersForQuestion[partIdx] = '';
+                                  } else {
+                                    prevAnswersForQuestion[partIdx] = option;
+                                  }
+                                  return { ...prev, [currentQuestion.id]: prevAnswersForQuestion };
+                                });
+                              }}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {currentQuestion.options.map((option, idx) => {
+                  const selected = currentAnswers.includes(option);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`text-right p-3 rounded-md border 
+                        ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                      onClick={() => {
+                        if (selected) {
+                          setAnswers(prev => {
+                            const newAns = prev[currentQuestion.id]?.filter(o => o !== option) || [];
+                            return { ...prev, [currentQuestion.id]: newAns };
+                          });
+                        } else {
+                          setAnswers(prev => {
+                            const newAns = prev[currentQuestion.id] ? [...prev[currentQuestion.id], option] : [option];
+                            return { ...prev, [currentQuestion.id]: newAns };
+                          });
+                        }
+                      }}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </Card>
