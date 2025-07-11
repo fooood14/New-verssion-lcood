@@ -27,8 +27,12 @@ const isCorrect = (userAnswers, correctAnswers, question) => {
 const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation(); // استيراد الموقع
-  const skipRegistration = location.state?.skipRegistration || false; // قراءة الحالة
+  const location = useLocation();
+
+  const skipRegistration = location.state?.skipRegistration || false;
+
+  // ✅ viewOnly support
+  const viewOnly = new URLSearchParams(location.search).get('viewOnly') === 'true';
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -90,13 +94,11 @@ const ExamSession = () => {
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
 
-      // إذا جاء الطلب بتخطي التسجيل
-      if (skipRegistration) {
-        // إعداد بيانات مؤقتة للمشارك
-        const tempInfo = { name: 'مشارك مباشر', phone: '', email: '' };
+      // ✅ تخطي التسجيل في حالة skipRegistration أو viewOnly
+      if (skipRegistration || viewOnly) {
+        const tempInfo = { name: 'مشاهدة مباشرة', phone: '', email: '' };
         setStudentInfo(tempInfo);
 
-        // إنشاء مشارك مؤقت في قاعدة البيانات
         const participantData = data.is_restricted_by_email
           ? { session_id: examId, email: tempInfo.email.trim().toLowerCase(), session_user_id: data.user_id }
           : { session_id: examId, name: tempInfo.name, phone_number: tempInfo.phone, session_user_id: data.user_id };
@@ -116,7 +118,7 @@ const ExamSession = () => {
         setParticipantId(participant.id);
         setExamStartTime(Date.now());
         setCurrentStep('exam');
-        toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+        toast({ title: "بدء الجلسة", description: "تم بدء عرض الجلسة." });
       }
     };
 
@@ -125,7 +127,7 @@ const ExamSession = () => {
       toast({ title: "خطأ", description: "معرف الجلسة مفقود", variant: "destructive" });
       navigate('/');
     }
-  }, [examId, navigate, skipRegistration]);
+  }, [examId, navigate, skipRegistration, viewOnly]);
 
   useEffect(() => {
     let timer;
@@ -242,6 +244,7 @@ const ExamSession = () => {
             answers={answers}
             setAnswers={setAnswers}
             onSubmit={submitExam}
+            viewOnly={viewOnly} // ✅ تمرير viewOnly
           />
         )}
         {currentStep === 'exam' && (!exam.questions || exam.questions.length === 0) && (
