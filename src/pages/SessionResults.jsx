@@ -71,7 +71,7 @@ const SessionResults = () => {
   }, [testId, navigate]);
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/exam-session/${testId}`;
+    const link = `${window.location.origin}/session/${testId}`;
     navigator.clipboard.writeText(link);
     toast({ title: 'تم النسخ!', description: 'تم نسخ رابط الاختبار كامل إلى الحافظة.' });
   };
@@ -154,7 +154,7 @@ const SessionResults = () => {
               <Button
                 variant="outline"
                 className="text-yellow-400 border-yellow-500 hover:bg-yellow-500/20"
-                onClick={() => navigate(`/exam-session/${testId}?viewOnly=true`)}
+                onClick={() => navigate(`/session/${testId}?viewOnly=true`)}
               >
                 <Play className="w-4 h-4 ml-2" /> عرض الجلسة
               </Button>
