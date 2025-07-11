@@ -11,8 +11,9 @@ const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const skipRegistration = location.state?.skipRegistration || false;
-  const viewOnly = new URLSearchParams(location.search).get("viewOnly") === "true";
+  const queryParams = new URLSearchParams(location.search);
+  const viewOnly = queryParams.get('viewOnly') === 'true';
+  const skipRegistration = location.state?.skipRegistration || viewOnly;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -24,26 +25,29 @@ const ExamSession = () => {
   const [examStartTime, setExamStartTime] = useState(null);
   const [sessionUserId, setSessionUserId] = useState(null);
 
+  const normalizeValue = (val) => {
+    if (val === null || val === undefined) return '';
+    return String(val).trim().toLowerCase();
+  };
+
   const isCorrect = (userAnswers, correctAnswers, question) => {
     if (!question) return false;
 
-    // سؤال مركب
     if (question.question_type === 'compound') {
       if (!Array.isArray(userAnswers) || userAnswers.length !== question.parts.length) return false;
 
       return question.parts.every((part, idx) => {
-        const userAnswer = userAnswers[idx]?.trim?.().toLowerCase?.();
-        const correct = part.correct_answer?.trim?.().toLowerCase?.();
+        const userAnswer = normalizeValue(userAnswers[idx]);
+        const correct = normalizeValue(part.correct_answer);
         return userAnswer === correct;
       });
     }
 
-    // سؤال عادي
     if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
     if (userAnswers.length !== correctAnswers.length) return false;
 
-    const sortedUser = userAnswers.map(a => a.trim?.().toLowerCase?.()).sort();
-    const sortedCorrect = correctAnswers.map(a => a.trim?.().toLowerCase?.()).sort();
+    const sortedUser = userAnswers.map(normalizeValue).sort();
+    const sortedCorrect = correctAnswers.map(normalizeValue).sort();
 
     return sortedUser.every((val, idx) => val === sortedCorrect[idx]);
   };
@@ -53,7 +57,7 @@ const ExamSession = () => {
       setLoading(true);
       const { data: testData, error: testError } = await supabase
         .from('tests')
-        .select('*')
+        .select('id, title, duration, user_id, original_test_id, is_restricted_by_email, allowed_emails, with_video')
         .eq('id', examId)
         .single();
 
@@ -67,7 +71,7 @@ const ExamSession = () => {
 
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
-        .select('*')
+        .select('id, question_text, options, correct_answers, question_type, time_limit_seconds, parts, video_url, explanation, explanation_video_url')
         .eq('test_id', sourceId);
 
       if (questionsError) {
@@ -95,7 +99,7 @@ const ExamSession = () => {
       setTimeLeft(formatted.duration * 60);
       setLoading(false);
 
-      if (viewOnly || skipRegistration) {
+      if (skipRegistration) {
         await startSessionAsGuest(testData);
       }
     }
@@ -122,14 +126,16 @@ const ExamSession = () => {
       setParticipantId(part.id);
       setExamStartTime(Date.now());
       setCurrentStep('exam');
-      toast({ title: "بدء الجلسة", description: "تم البدء بنجاح." });
+      if (!viewOnly) {
+        toast({ title: "بدء الاختبار! 🚀", description: "بالتوفيق!" });
+      }
     }
 
     fetchExamDetails();
-  }, [examId, skipRegistration, viewOnly, navigate]);
+  }, [examId, skipRegistration, navigate]);
 
   useEffect(() => {
-    if (currentStep === 'exam' && timeLeft > 0 && !viewOnly) {
+    if (currentStep === 'exam' && timeLeft > 0) {
       const timer = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -142,7 +148,7 @@ const ExamSession = () => {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [currentStep, timeLeft, viewOnly]);
+  }, [currentStep, timeLeft]);
 
   const handleRegistrationSubmit = async (info) => {
     setStudentInfo(info);
@@ -175,12 +181,14 @@ const ExamSession = () => {
     setParticipantId(part.id);
     setExamStartTime(Date.now());
     setCurrentStep('exam');
-    toast({ title: "بدء الاختبار", description: "بالتوفيق!" });
+    toast({ title: "بدء الاختبار! 🚀", description: "بالتوفيق!" });
   };
 
   const handleSubmit = async () => {
-    if (!exam || currentStep !== 'exam' || viewOnly) {
-      setCurrentStep('completed');
+    if (!exam || currentStep !== 'exam') return;
+
+    if (!participantId) {
+      toast({ title: "خطأ", description: "معرف المشارك غير موجود، لا يمكن حفظ النتيجة", variant: "destructive" });
       return;
     }
 
@@ -189,26 +197,35 @@ const ExamSession = () => {
 
     exam.questions.forEach(q => {
       const userAns = answers[q.id] || [];
-      const isOk = isCorrect(userAns, q.correct_answers, q);
-      if (isOk) correctCount++;
+      const isCorrectAnswer = isCorrect(userAns, q.correct_answers, q);
+      if (isCorrectAnswer) correctCount++;
     });
 
     const percent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
-    await supabase.from('test_results').insert([{
-      test_id: examId,
-      participant_id: participantId,
-      score: correctCount,
-      total_questions: total,
-      percentage: percent,
-      time_spent: exam.duration * 60 - timeLeft,
-      answers,
-      test_title: exam.title,
-      submitted_at: new Date().toISOString()
-    }]);
+    try {
+      const { error } = await supabase.from('test_results').insert([{
+        test_id: examId,
+        participant_id: participantId,
+        score: correctCount,
+        total_questions: total,
+        percentage: percent,
+        time_spent: exam.duration * 60 - timeLeft,
+        answers,
+        test_title: exam.title,
+        submitted_at: new Date().toISOString()
+      }]);
 
-    setCurrentStep('completed');
-    toast({ title: "تم إنهاء الاختبار", description: `نتيجتك: ${correctCount}/${total} (${percent}%)` });
+      if (error) {
+        toast({ title: "خطأ", description: `فشل حفظ النتيجة: ${error.message}`, variant: "destructive" });
+        return;
+      }
+
+      setCurrentStep('completed');
+      toast({ title: "تم إنهاء الاختبار", description: `نتيجتك: ${correctCount}/${total} (${percent}%)` });
+    } catch (err) {
+      toast({ title: "خطأ غير متوقع", description: err.message, variant: "destructive" });
+    }
   };
 
   if (loading || !exam) return (
@@ -221,7 +238,7 @@ const ExamSession = () => {
   return (
     <div className="min-h-screen p-4 flex items-center justify-center">
       <AnimatePresence mode="wait">
-        {currentStep === 'registration' && !viewOnly && (
+        {currentStep === 'registration' && (
           <RegistrationStep key="registration" exam={exam} onSubmit={handleRegistrationSubmit} />
         )}
         {currentStep === 'exam' && (
@@ -237,12 +254,7 @@ const ExamSession = () => {
           />
         )}
         {currentStep === 'completed' && (
-          <CompletionStep
-            key="completed"
-            studentInfo={studentInfo}
-            exam={exam}
-            answers={answers}
-          />
+          <CompletionStep key="completed" studentInfo={studentInfo} />
         )}
       </AnimatePresence>
     </div>
