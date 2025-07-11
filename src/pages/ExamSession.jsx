@@ -39,15 +39,20 @@ const ExamSession = () => {
       return question.parts.every((part, idx) => {
         const userAnswer = normalizeValue(userAnswers[idx]);
         const correct = normalizeValue(part.correct_answer);
-        return userAnswer === correct;
+        return userAnswer && userAnswer === correct;
       });
     }
 
     if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
-    if (userAnswers.length !== correctAnswers.length) return false;
 
-    const sortedUser = userAnswers.map(normalizeValue).sort();
-    const sortedCorrect = correctAnswers.map(normalizeValue).sort();
+    // إزالة القيم الفارغة أو null قبل المقارنة
+    const filteredUser = userAnswers.map(normalizeValue).filter(v => v !== '');
+    const filteredCorrect = correctAnswers.map(normalizeValue).filter(v => v !== '');
+
+    if (filteredUser.length !== filteredCorrect.length) return false;
+
+    const sortedUser = filteredUser.sort();
+    const sortedCorrect = filteredCorrect.sort();
 
     return sortedUser.every((val, idx) => val === sortedCorrect[idx]);
   };
@@ -192,12 +197,16 @@ const ExamSession = () => {
       return;
     }
 
+    console.log('الإجابات المرسلة:', answers);
+    console.log('أسئلة الامتحان:', exam.questions);
+
     const total = exam.questions.length;
     let correctCount = 0;
 
     exam.questions.forEach(q => {
       const userAns = answers[q.id] || [];
       const isCorrectAnswer = isCorrect(userAns, q.correct_answers, q);
+      console.log(`سؤال ${q.id} - الإجابة صحيحة؟`, isCorrectAnswer);
       if (isCorrectAnswer) correctCount++;
     });
 
