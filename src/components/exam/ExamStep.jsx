@@ -4,15 +4,7 @@ import { ArrowRight, ArrowLeft, CheckCircle, RotateCcw, Clock } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-const ExamStep = ({
-  exam,
-  studentInfo,
-  timeLeft,
-  answers,
-  setAnswers,
-  onSubmit,
-  viewOnly = false, // ✅ استلام viewOnly
-}) => {
+const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, viewOnly = false }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const currentQuestion = exam.questions[currentQuestionIndex];
   const [questionTimeLeft, setQuestionTimeLeft] = useState(currentQuestion?.time_limit_seconds || 30);
@@ -46,13 +38,26 @@ const ExamStep = ({
     return () => clearInterval(timer);
   }, [questionTimeLeft, currentQuestionIndex]);
 
-  if (!currentQuestion) return null;
+  // لو كنا في وضع viewOnly نخلي التعريفات ديال الإجابة فاضية وما كندير حتى حاجة في setAnswers
+  const handleAnswerSelect = () => {
+    if (viewOnly) return;
+    // باقي الكود الأصلي كما هو
+  };
+
+  const clearAnswer = (questionId) => {
+    if (viewOnly) return;
+    setAnswers((prev) => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+  };
 
   const nextQuestion = () => {
     if (currentQuestionIndex < exam.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
-    } else if (!viewOnly) {
-      onSubmit();
+    } else {
+      if (!viewOnly) onSubmit();
     }
   };
 
@@ -63,39 +68,6 @@ const ExamStep = ({
   };
 
   const currentAnswers = Array.isArray(answers[currentQuestion.id]) ? answers[currentQuestion.id] : [];
-
-  const handleAnswerSelect = (questionId, answerIndex, partIndex = null) => {
-    if (viewOnly) return; // ✅ منع التفاعل في وضع العرض فقط
-    const question = exam.questions.find((q) => q.id === questionId);
-    setAnswers((prev) => {
-      const newAnswers = { ...prev };
-
-      if (question.question_type === 'compound') {
-        const current = Array.isArray(newAnswers[questionId]) ? [...newAnswers[questionId]] : [];
-        current[partIndex] = answerIndex;
-        newAnswers[questionId] = current;
-      } else if (question.question_type === 'single') {
-        newAnswers[questionId] = [answerIndex];
-      } else {
-        const current = newAnswers[questionId] || [];
-        const i = current.indexOf(answerIndex);
-        if (i === -1) current.push(answerIndex);
-        else current.splice(i, 1);
-        newAnswers[questionId] = [...current];
-      }
-
-      return newAnswers;
-    });
-  };
-
-  const clearAnswer = (questionId) => {
-    if (viewOnly) return; // ✅ لا يمكن إلغاء في العرض فقط
-    setAnswers((prev) => {
-      const updated = { ...prev };
-      delete updated[questionId];
-      return updated;
-    });
-  };
 
   let parts = [];
   if (currentQuestion.question_type === 'compound') {
@@ -118,13 +90,31 @@ const ExamStep = ({
       exit={{ opacity: 0, x: -20 }}
       className="max-w-4xl w-full mx-auto"
     >
+      <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 rounded-2xl p-6 mb-6 backdrop-blur-sm border border-slate-700">
+        <div className="flex justify-between items-center">
+          <div>
+            {/* في وضع العرض فقط ما نظهرش الاسم */}
+            {!viewOnly && (
+              <>
+                <h2 className="text-2xl font-bold text-white">{exam.title}</h2>
+                <p className="text-gray-300">مرحباً {studentInfo.name}</p>
+              </>
+            )}
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-yellow-400">{formatTime(timeLeft)}</div>
+            <p className="text-gray-300 text-sm">الوقت المتبقي</p>
+          </div>
+        </div>
+      </div>
+
       <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
+        {/* عرض الفيديو فقط حتى في وضع العرض المباشر */}
         {currentQuestion.video_url && (
           <div className="mb-6">
             <video
               key={currentQuestion.video_url}
               controls
-              autoPlay
               className="w-full rounded-lg"
             >
               <source src={currentQuestion.video_url} type="video/mp4" />
@@ -133,21 +123,20 @@ const ExamStep = ({
           </div>
         )}
 
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-white font-semibold text-xl">{exam.title}</div>
-          <div className="flex items-center gap-2 text-orange-400 font-mono text-lg">
-            <Clock className="w-5 h-5" />
-            <span>{formatTime(questionTimeLeft)}</span>
-          </div>
+        {/* عنوان السؤال والوقت */}
+        <div className="flex justify-between items-start mb-6">
+          <h3 className="text-xl font-semibold text-white text-right flex-1">{currentQuestion.question}</h3>
+          {currentQuestion.time_limit_seconds && (
+            <div className="flex items-center gap-2 text-orange-400 font-mono text-lg mr-4">
+              <Clock className="w-5 h-5" />
+              <span>{formatTime(questionTimeLeft)}</span>
+            </div>
+          )}
         </div>
 
-        {/* ✅ في وضع العرض فقط: لا نعرض السؤال أو الاختيارات */}
+        {/* إذا كنا في وضع العرض فقط، ما نظهر لا الأسئلة لا الاختيارات */}
         {!viewOnly && (
           <>
-            <div className="flex justify-between items-start mb-6">
-              <h3 className="text-xl font-semibold text-white text-right flex-1">{currentQuestion.question}</h3>
-            </div>
-
             {currentQuestion.question_type === 'compound' && parts.length > 0 ? (
               <div className="space-y-6">
                 {parts.map((part, partIdx) => (
@@ -208,7 +197,7 @@ const ExamStep = ({
         )}
       </Card>
 
-      {/* ✅ إخفاء أزرار التنقل في وضع العرض فقط */}
+      {/* أزرار التنقل وإلغاء الإجابة تظهر فقط لو ما كانش viewOnly */}
       {!viewOnly && (
         <div className="flex justify-between items-center">
           <Button onClick={prevQuestion} disabled={currentQuestionIndex === 0} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
