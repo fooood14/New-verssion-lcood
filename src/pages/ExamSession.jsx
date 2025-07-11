@@ -170,27 +170,44 @@ const ExamSession = () => {
 
   const handleSubmit = async () => {
     if (!exam || currentStep !== 'exam') return;
+
+    if (!participantId) {
+      toast({ title: "خطأ", description: "معرف المشارك غير موجود، لا يمكن حفظ النتيجة", variant: "destructive" });
+      return;
+    }
+
     const total = exam.questions.length;
     let correctCount = 0;
+
     exam.questions.forEach(q => {
       if (isCorrect(answers[q.id] || [], q.correct_answers, q)) correctCount++;
     });
+
     const percent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
-    await supabase.from('test_results').insert([{
-      test_id: examId,
-      participant_id: participantId,
-      score: correctCount,
-      total_questions: total,
-      percentage: percent,
-      time_spent: exam.duration * 60 - timeLeft,
-      answers,
-      test_title: exam.title,
-      submitted_at: new Date().toISOString()
-    }]);
+    try {
+      const { error } = await supabase.from('test_results').insert([{
+        test_id: examId,
+        participant_id: participantId,
+        score: correctCount,
+        total_questions: total,
+        percentage: percent,
+        time_spent: exam.duration * 60 - timeLeft,
+        answers,
+        test_title: exam.title,
+        submitted_at: new Date().toISOString()
+      }]);
 
-    setCurrentStep('completed');
-    toast({ title: "تم إنهاء الاختبار", description: `نتيجتك: ${correctCount}/${total} (${percent}%)` });
+      if (error) {
+        toast({ title: "خطأ", description: `فشل حفظ النتيجة: ${error.message}`, variant: "destructive" });
+        return;
+      }
+
+      setCurrentStep('completed');
+      toast({ title: "تم إنهاء الاختبار", description: `نتيجتك: ${correctCount}/${total} (${percent}%)` });
+    } catch (err) {
+      toast({ title: "خطأ غير متوقع", description: err.message, variant: "destructive" });
+    }
   };
 
   if (loading || !exam) return (
@@ -215,7 +232,7 @@ const ExamSession = () => {
             answers={answers}
             setAnswers={setAnswers}
             onSubmit={handleSubmit}
-            viewOnly={viewOnly} // ✅ ممررة هنا
+            viewOnly={viewOnly}
           />
         )}
         {currentStep === 'completed' && <CompletionStep key="completed" studentInfo={studentInfo} />}
