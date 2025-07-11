@@ -12,6 +12,7 @@ const ExamSession = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const skipRegistration = location.state?.skipRegistration || false;
+  const viewOnly = new URLSearchParams(location.search).get("viewOnly") === "true";
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -25,12 +26,26 @@ const ExamSession = () => {
 
   const isCorrect = (userAnswers, correctAnswers, question) => {
     if (!question) return false;
+
+    // سؤال مركب
     if (question.question_type === 'compound') {
-      return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
+      if (!Array.isArray(userAnswers) || userAnswers.length !== question.parts.length) return false;
+
+      return question.parts.every((part, idx) => {
+        const userAnswer = userAnswers[idx]?.trim?.().toLowerCase?.();
+        const correct = part.correct_answer?.trim?.().toLowerCase?.();
+        return userAnswer === correct;
+      });
     }
-    if (!userAnswers || !correctAnswers) return false;
+
+    // سؤال عادي
+    if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
     if (userAnswers.length !== correctAnswers.length) return false;
-    return [...userAnswers].sort().every((val, idx) => val === [...correctAnswers].sort()[idx]);
+
+    const sortedUser = userAnswers.map(a => a.trim?.().toLowerCase?.()).sort();
+    const sortedCorrect = correctAnswers.map(a => a.trim?.().toLowerCase?.()).sort();
+
+    return sortedUser.every((val, idx) => val === sortedCorrect[idx]);
   };
 
   useEffect(() => {
@@ -38,7 +53,7 @@ const ExamSession = () => {
       setLoading(true);
       const { data: testData, error: testError } = await supabase
         .from('tests')
-        .select('id, title, duration, user_id, original_test_id, is_restricted_by_email, allowed_emails, with_video')
+        .select('*')
         .eq('id', examId)
         .single();
 
@@ -52,7 +67,7 @@ const ExamSession = () => {
 
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
-        .select('id, question_text, options, correct_answers, question_type, time_limit_seconds, parts, video_url, explanation, explanation_video_url')
+        .select('*')
         .eq('test_id', sourceId);
 
       if (questionsError) {
@@ -80,7 +95,7 @@ const ExamSession = () => {
       setTimeLeft(formatted.duration * 60);
       setLoading(false);
 
-      if (skipRegistration) {
+      if (viewOnly || skipRegistration) {
         await startSessionAsGuest(testData);
       }
     }
@@ -111,10 +126,10 @@ const ExamSession = () => {
     }
 
     fetchExamDetails();
-  }, [examId, skipRegistration, navigate]);
+  }, [examId, skipRegistration, viewOnly, navigate]);
 
   useEffect(() => {
-    if (currentStep === 'exam' && timeLeft > 0) {
+    if (currentStep === 'exam' && timeLeft > 0 && !viewOnly) {
       const timer = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -127,7 +142,7 @@ const ExamSession = () => {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [currentStep, timeLeft]);
+  }, [currentStep, timeLeft, viewOnly]);
 
   const handleRegistrationSubmit = async (info) => {
     setStudentInfo(info);
@@ -164,13 +179,20 @@ const ExamSession = () => {
   };
 
   const handleSubmit = async () => {
-    if (!exam || currentStep !== 'exam') return;
+    if (!exam || currentStep !== 'exam' || viewOnly) {
+      setCurrentStep('completed');
+      return;
+    }
 
     const total = exam.questions.length;
     let correctCount = 0;
+
     exam.questions.forEach(q => {
-      if (isCorrect(answers[q.id] || [], q.correct_answers, q)) correctCount++;
+      const userAns = answers[q.id] || [];
+      const isOk = isCorrect(userAns, q.correct_answers, q);
+      if (isOk) correctCount++;
     });
+
     const percent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
     await supabase.from('test_results').insert([{
@@ -199,7 +221,7 @@ const ExamSession = () => {
   return (
     <div className="min-h-screen p-4 flex items-center justify-center">
       <AnimatePresence mode="wait">
-        {currentStep === 'registration' && (
+        {currentStep === 'registration' && !viewOnly && (
           <RegistrationStep key="registration" exam={exam} onSubmit={handleRegistrationSubmit} />
         )}
         {currentStep === 'exam' && (
@@ -211,9 +233,17 @@ const ExamSession = () => {
             answers={answers}
             setAnswers={setAnswers}
             onSubmit={handleSubmit}
+            viewOnly={viewOnly}
           />
         )}
-        {currentStep === 'completed' && <CompletionStep key="completed" studentInfo={studentInfo} />}
+        {currentStep === 'completed' && (
+          <CompletionStep
+            key="completed"
+            studentInfo={studentInfo}
+            exam={exam}
+            answers={answers}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
