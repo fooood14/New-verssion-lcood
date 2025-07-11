@@ -11,10 +11,8 @@ const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const queryParams = new URLSearchParams(location.search);
-  const viewOnly = queryParams.get('viewOnly') === 'true';
-  const skipRegistration = location.state?.skipRegistration || viewOnly;
+  const skipRegistration = location.state?.skipRegistration || false;
+  const onlyVideoMode = location.state?.onlyVideoMode || false;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -110,9 +108,7 @@ const ExamSession = () => {
       setParticipantId(part.id);
       setExamStartTime(Date.now());
       setCurrentStep('exam');
-      if (!viewOnly) {
-        toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
-      }
+      toast({ title: "بدء الجلسة", description: "تم البدء بنجاح." });
     }
 
     fetchExamDetails();
@@ -165,49 +161,38 @@ const ExamSession = () => {
     setParticipantId(part.id);
     setExamStartTime(Date.now());
     setCurrentStep('exam');
-    toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً" });
+    toast({ title: "بدء الاختبار", description: "بالتوفيق!" });
   };
 
   const handleSubmit = async () => {
     if (!exam || currentStep !== 'exam') return;
 
-    if (!participantId) {
-      toast({ title: "خطأ", description: "معرف المشارك غير موجود، لا يمكن حفظ النتيجة", variant: "destructive" });
+    if (onlyVideoMode) {
+      setCurrentStep('completed');
       return;
     }
 
     const total = exam.questions.length;
     let correctCount = 0;
-
     exam.questions.forEach(q => {
       if (isCorrect(answers[q.id] || [], q.correct_answers, q)) correctCount++;
     });
-
     const percent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
-    try {
-      const { error } = await supabase.from('test_results').insert([{
-        test_id: examId,
-        participant_id: participantId,
-        score: correctCount,
-        total_questions: total,
-        percentage: percent,
-        time_spent: exam.duration * 60 - timeLeft,
-        answers,
-        test_title: exam.title,
-        submitted_at: new Date().toISOString()
-      }]);
+    await supabase.from('test_results').insert([{
+      test_id: examId,
+      participant_id: participantId,
+      score: correctCount,
+      total_questions: total,
+      percentage: percent,
+      time_spent: exam.duration * 60 - timeLeft,
+      answers,
+      test_title: exam.title,
+      submitted_at: new Date().toISOString()
+    }]);
 
-      if (error) {
-        toast({ title: "خطأ", description: `فشل حفظ النتيجة: ${error.message}`, variant: "destructive" });
-        return;
-      }
-
-      setCurrentStep('completed');
-      toast({ title: "تم إنهاء الاختبار", description: `نتيجتك: ${correctCount}/${total} (${percent}%)` });
-    } catch (err) {
-      toast({ title: "خطأ غير متوقع", description: err.message, variant: "destructive" });
-    }
+    setCurrentStep('completed');
+    toast({ title: "تم إنهاء الاختبار", description: `نتيجتك: ${correctCount}/${total} (${percent}%)` });
   };
 
   if (loading || !exam) return (
@@ -229,10 +214,10 @@ const ExamSession = () => {
             exam={exam}
             studentInfo={studentInfo}
             timeLeft={timeLeft}
-            answers={answers}
-            setAnswers={setAnswers}
+            answers={onlyVideoMode ? {} : answers}
+            setAnswers={onlyVideoMode ? () => {} : setAnswers}
             onSubmit={handleSubmit}
-            viewOnly={viewOnly}
+            onlyVideoMode={onlyVideoMode} // ✅ هذا هو المفتاح اللي غادي نحكمو به
           />
         )}
         {currentStep === 'completed' && <CompletionStep key="completed" studentInfo={studentInfo} />}
