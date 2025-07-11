@@ -112,6 +112,35 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
           <>
             <h3 className="text-xl font-semibold text-white text-right mb-4">{currentQuestion.question}</h3>
             {/* هنا تضيف كود عرض الخيارات */}
+<div className="flex flex-col gap-3">
+  {currentQuestion.options.map((option, idx) => {
+    const selected = currentAnswers.includes(option);
+    return (
+      <button
+        key={idx}
+        type="button"
+        className={`text-right p-3 rounded-md border 
+          ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+        onClick={() => {
+          if (selected) {
+            setAnswers(prev => {
+              const newAns = prev[currentQuestion.id]?.filter(o => o !== option) || [];
+              return { ...prev, [currentQuestion.id]: newAns };
+            });
+          } else {
+            setAnswers(prev => {
+              const newAns = prev[currentQuestion.id] ? [...prev[currentQuestion.id], option] : [option];
+              return { ...prev, [currentQuestion.id]: newAns };
+            });
+          }
+        }}
+      >
+        {option}
+      </button>
+    );
+  })}
+</div>
+
           </>
         )}
       </Card>
