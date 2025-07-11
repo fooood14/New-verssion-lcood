@@ -25,6 +25,8 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
   }, [currentQuestionIndex]);
 
   useEffect(() => {
+    if (viewOnly) return; // لا مؤقت سؤال في وضع viewOnly
+
     if (!currentQuestion || !currentQuestion.time_limit_seconds) return;
     const timer = setInterval(() => {
       setQuestionTimeLeft((prev) => {
@@ -36,13 +38,18 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [questionTimeLeft, currentQuestionIndex]);
+  }, [questionTimeLeft, currentQuestionIndex, viewOnly]);
 
   const nextQuestion = () => {
     if (currentQuestionIndex < exam.questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      if (!viewOnly) onSubmit();
+      if (!viewOnly) {
+        onSubmit();
+      } else {
+        // في viewOnly نعيد الحلقة من البداية
+        setCurrentQuestionIndex(0);
+      }
     }
   };
 
@@ -56,7 +63,7 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
       exit={{ opacity: 0, x: -20 }}
       className="max-w-4xl w-full mx-auto"
     >
-      {/* العنوان والمؤقت العام */}
+      {/* العنوان والمؤقت العام - لا يظهر في viewOnly */}
       {!viewOnly && (
         <div className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 rounded-2xl p-6 mb-6 backdrop-blur-sm border border-slate-700">
           <div className="flex justify-between items-center">
@@ -73,8 +80,8 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
       )}
 
       <Card className="p-4 md:p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm mb-6">
-        {/* الفيديو */}
-        {currentQuestion.video_url && (
+        {/* عرض الفيديو فقط */}
+        {currentQuestion.video_url ? (
           <div className="mb-6">
             <video
               key={currentQuestion.video_url}
@@ -88,29 +95,36 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
               المتصفح لا يدعم تشغيل الفيديو.
             </video>
           </div>
-        )}
+        ) : viewOnly ? (
+          <p className="text-center text-gray-400">لا يوجد فيديو للسؤال الحالي.</p>
+        ) : null}
 
-        {/* المؤقت الخاص بالسؤال */}
-        {currentQuestion.time_limit_seconds && (
+        {/* مؤقت السؤال - فقط في الوضع العادي */}
+        {!viewOnly && currentQuestion.time_limit_seconds && (
           <div className="flex items-center gap-2 text-orange-400 font-mono text-lg justify-end mb-2">
             <Clock className="w-5 h-5" />
             <span>{formatTime(questionTimeLeft)}</span>
           </div>
         )}
 
-        {/* عرض السؤال والنصوص والاختيارات إذا لم يكن عرض فقط */}
+        {/* عرض السؤال والاختيارات - فقط في الوضع العادي */}
         {!viewOnly && (
           <>
             <h3 className="text-xl font-semibold text-white text-right mb-4">{currentQuestion.question}</h3>
-            {/* ... يمكنك ترك باقي كود عرض الخيارات هنا كما هو إن رغبت */}
+            {/* هنا تضيف كود عرض الخيارات */}
           </>
         )}
       </Card>
 
-      {/* أزرار التنقل (مخفية في وضع viewOnly) */}
+      {/* أزرار التنقل - فقط في الوضع العادي */}
       {!viewOnly && (
         <div className="flex justify-between items-center">
-          <Button onClick={() => setCurrentQuestionIndex(currentQuestionIndex - 1)} disabled={currentQuestionIndex === 0} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
+          <Button
+            onClick={() => setCurrentQuestionIndex(currentQuestionIndex - 1)}
+            disabled={currentQuestionIndex === 0}
+            variant="outline"
+            className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+          >
             <ArrowRight className="w-4 h-4 ml-2" /> السابق
           </Button>
 
@@ -126,11 +140,17 @@ const ExamStep = ({ exam, studentInfo, timeLeft, answers, setAnswers, onSubmit, 
             </Button>
 
             {currentQuestionIndex === exam.questions.length - 1 ? (
-              <Button onClick={onSubmit} className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white">
+              <Button
+                onClick={onSubmit}
+                className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+              >
                 إنهاء الاختبار <CheckCircle className="w-4 h-4 mr-2" />
               </Button>
             ) : (
-              <Button onClick={nextQuestion} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+              <Button
+                onClick={nextQuestion}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              >
                 التالي <ArrowLeft className="w-4 h-4 mr-2" />
               </Button>
             )}
