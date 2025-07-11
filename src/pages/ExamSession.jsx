@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+
 import RegistrationStep from '@/components/exam/RegistrationStep';
 import ExamStep from '@/components/exam/ExamStep';
 import CompletionStep from '@/components/exam/CompletionStep';
@@ -19,16 +20,19 @@ const isCorrect = (userAnswers, correctAnswers, question) => {
 
   if (!userAnswers || !correctAnswers) return false;
   if (userAnswers.length !== correctAnswers.length) return false;
+
   const sortedUserAnswers = [...userAnswers].sort();
   const sortedCorrectAnswers = [...correctAnswers].sort();
+
   return sortedUserAnswers.every((val, index) => val === sortedCorrectAnswers[index]);
 };
 
 const ExamSession = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation(); // استيراد الموقع
-  const skipRegistration = location.state?.skipRegistration || false; // قراءة الحالة
+  const location = useLocation();
+
+  const skipRegistration = location.state?.skipRegistration || false;
 
   const [exam, setExam] = useState(null);
   const [currentStep, setCurrentStep] = useState('registration');
@@ -43,20 +47,24 @@ const ExamSession = () => {
   useEffect(() => {
     const fetchExamDetails = async () => {
       setLoading(true);
-
       const { data, error } = await supabase
         .from('tests')
-        .select(`id, title, duration, user_id, original_test_id, is_restricted_by_email, allowed_emails, with_video`)
+        .select('id, title, duration, user_id, original_test_id, is_restricted_by_email, allowed_emails, with_video')
         .eq('id', examId)
         .single();
 
       if (error || !data) {
-        toast({ title: "خطأ", description: "جلسة الاختبار غير موجودة أو فشل في التحميل", variant: "destructive" });
+        toast({
+          title: "خطأ",
+          description: "جلسة الاختبار غير موجودة أو فشل في التحميل",
+          variant: "destructive"
+        });
         navigate('/');
         return;
       }
 
       setSessionUserId(data.user_id);
+
       const questionSourceId = data.original_test_id || data.id;
 
       const { data: questionsData, error: questionsError } = await supabase
@@ -65,7 +73,11 @@ const ExamSession = () => {
         .eq('test_id', questionSourceId);
 
       if (questionsError) {
-        toast({ title: "خطأ", description: "فشل في تحميل أسئلة الاختبار.", variant: "destructive" });
+        toast({
+          title: "خطأ",
+          description: "فشل في تحميل أسئلة الاختبار.",
+          variant: "destructive"
+        });
         navigate('/');
         return;
       }
@@ -90,16 +102,22 @@ const ExamSession = () => {
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
 
-      // إذا جاء الطلب بتخطي التسجيل
       if (skipRegistration) {
-        // إعداد بيانات مؤقتة للمشارك
         const tempInfo = { name: 'مشارك مباشر', phone: '', email: '' };
         setStudentInfo(tempInfo);
 
-        // إنشاء مشارك مؤقت في قاعدة البيانات
         const participantData = data.is_restricted_by_email
-          ? { session_id: examId, email: tempInfo.email.trim().toLowerCase(), session_user_id: data.user_id }
-          : { session_id: examId, name: tempInfo.name, phone_number: tempInfo.phone, session_user_id: data.user_id };
+          ? {
+              session_id: examId,
+              email: tempInfo.email.trim().toLowerCase(),
+              session_user_id: data.user_id
+            }
+          : {
+              session_id: examId,
+              name: tempInfo.name,
+              phone_number: tempInfo.phone,
+              session_user_id: data.user_id
+            };
 
         const { data: participant, error: participantError } = await supabase
           .from('session_participants')
@@ -108,7 +126,11 @@ const ExamSession = () => {
           .single();
 
         if (participantError || !participant) {
-          toast({ title: "خطأ", description: `فشل في تسجيل المشارك: ${participantError?.message}`, variant: "destructive" });
+          toast({
+            title: "خطأ",
+            description: `فشل في تسجيل المشارك: ${participantError?.message}`,
+            variant: "destructive"
+          });
           navigate('/');
           return;
         }
@@ -116,7 +138,11 @@ const ExamSession = () => {
         setParticipantId(participant.id);
         setExamStartTime(Date.now());
         setCurrentStep('exam');
-        toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+
+        toast({
+          title: "بدء الاختبار! 🚀",
+          description: "حظاً موفقاً في الاختبار"
+        });
       }
     };
 
@@ -150,38 +176,69 @@ const ExamSession = () => {
     if (exam.is_restricted_by_email) {
       const userEmail = info.email?.trim().toLowerCase();
       if (!userEmail) {
-        toast({ title: "خطأ", description: "يرجى إدخال البريد الإلكتروني.", variant: "destructive" });
+        toast({
+          title: "خطأ",
+          description: "يرجى إدخال البريد الإلكتروني.",
+          variant: "destructive"
+        });
         return;
       }
+
       if (!exam.allowed_emails || !exam.allowed_emails.includes(userEmail)) {
-        toast({ title: "خطأ", description: "هذا البريد الإلكتروني غير مسموح له بإجراء هذا الاختبار.", variant: "destructive" });
+        toast({
+          title: "خطأ",
+          description: "هذا البريد الإلكتروني غير مسموح له بإجراء هذا الاختبار.",
+          variant: "destructive"
+        });
         return;
       }
     } else {
       if (!info.name.trim() || !info.phone.trim()) {
-        toast({ title: "خطأ", description: "يرجى إدخال الاسم ورقم الهاتف", variant: "destructive" });
+        toast({
+          title: "خطأ",
+          description: "يرجى إدخال الاسم ورقم الهاتف",
+          variant: "destructive"
+        });
         return;
       }
     }
 
     const participantData = exam.is_restricted_by_email
-      ? { session_id: examId, email: info.email.trim().toLowerCase(), session_user_id: sessionUserId }
-      : { session_id: examId, name: info.name, phone_number: info.phone, session_user_id: sessionUserId };
+      ? {
+          session_id: examId,
+          email: info.email.trim().toLowerCase(),
+          session_user_id: sessionUserId
+        }
+      : {
+          session_id: examId,
+          name: info.name,
+          phone_number: info.phone,
+          session_user_id: sessionUserId
+        };
 
     const { data, error } = await supabase
       .from('session_participants')
       .insert([participantData])
-      .select('id').single();
+      .select('id')
+      .single();
 
     if (error || !data) {
-      toast({ title: "خطأ", description: `فشل في تسجيل المشارك: ${error.message}`, variant: "destructive" });
+      toast({
+        title: "خطأ",
+        description: `فشل في تسجيل المشارك: ${error.message}`,
+        variant: "destructive"
+      });
       return;
     }
 
     setParticipantId(data.id);
     setExamStartTime(Date.now());
     setCurrentStep('exam');
-    toast({ title: "بدء الاختبار! 🚀", description: "حظاً موفقاً في الاختبار" });
+
+    toast({
+      title: "بدء الاختبار! 🚀",
+      description: "حظاً موفقاً في الاختبار"
+    });
   };
 
   const submitExam = async () => {
@@ -192,7 +249,10 @@ const ExamSession = () => {
       return total + (isCorrect(userAnswers, question.correct_answers, question) ? 1 : 0);
     }, 0);
 
-    const percentage = exam.questions.length > 0 ? Math.round((score / exam.questions.length) * 100) : 0;
+    const percentage = exam.questions.length > 0
+      ? Math.round((score / exam.questions.length) * 100)
+      : 0;
+
     const timeSpent = exam.duration * 60 - timeLeft;
 
     if (participantId) {
@@ -207,13 +267,21 @@ const ExamSession = () => {
         test_title: exam.title,
         submitted_at: new Date().toISOString()
       }]);
+
       if (error) {
-        toast({ title: "خطأ", description: `فشل في حفظ نتيجة الاختبار: ${error.message}`, variant: "destructive" });
+        toast({
+          title: "خطأ",
+          description: `فشل في حفظ نتيجة الاختبار: ${error.message}`,
+          variant: "destructive"
+        });
       }
     }
 
     setCurrentStep('completed');
-    toast({ title: "تم إنهاء الاختبار! 🎉", description: `نتيجتك: ${score}/${exam.questions.length} - متوسط النجاح: ${percentage}%` });
+    toast({
+      title: "تم إنهاء الاختبار! 🎉",
+      description: `نتيجتك: ${score}/${exam.questions.length} - متوسط النجاح: ${percentage}%`
+    });
   };
 
   if (loading || !exam) {
@@ -231,8 +299,13 @@ const ExamSession = () => {
     <div className="min-h-screen p-4 flex flex-col items-center justify-center">
       <AnimatePresence mode="wait">
         {currentStep === 'registration' && (
-          <RegistrationStep key="registration" exam={exam} onSubmit={handleRegistrationSubmit} />
+          <RegistrationStep
+            key="registration"
+            exam={exam}
+            onSubmit={handleRegistrationSubmit}
+          />
         )}
+
         {currentStep === 'exam' && exam.questions && exam.questions.length > 0 && (
           <ExamStep
             key="exam"
@@ -244,6 +317,7 @@ const ExamSession = () => {
             onSubmit={submitExam}
           />
         )}
+
         {currentStep === 'exam' && (!exam.questions || exam.questions.length === 0) && (
           <motion.div
             key="no-questions"
@@ -254,15 +328,24 @@ const ExamSession = () => {
           >
             <Card className="p-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700 backdrop-blur-sm">
               <h2 className="text-2xl font-bold text-white mb-4">لا توجد أسئلة</h2>
-              <p className="text-gray-300 mb-6">هذا الاختبار لا يحتوي على أسئلة حالياً. يرجى مراجعة منشئ الاختبار.</p>
-              <Button onClick={() => navigate('/dashboard')} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+              <p className="text-gray-300 mb-6">
+                هذا الاختبار لا يحتوي على أسئلة حالياً. يرجى مراجعة منشئ الاختبار.
+              </p>
+              <Button
+                onClick={() => navigate('/dashboard')}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              >
                 العودة للوحة التحكم
               </Button>
             </Card>
           </motion.div>
         )}
+
         {currentStep === 'completed' && (
-          <CompletionStep key="completed" studentInfo={studentInfo} />
+          <CompletionStep
+            key="completed"
+            studentInfo={studentInfo}
+          />
         )}
       </AnimatePresence>
     </div>
