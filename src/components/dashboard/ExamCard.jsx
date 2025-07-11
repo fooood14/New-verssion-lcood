@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, Users, Clock, Share2, Trash2, Copy, BarChart2, Star, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,13 +20,17 @@ const ExamCard = ({
   onViewResults,
   isOwner,
   onStartSession,
-  onViewLiveSession, // دالة عرض الجلسة المباشرة
 }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleStartSession = (withVideo) => {
     setDialogOpen(false);
     if (onStartSession) onStartSession(exam, withVideo);
+  };
+
+  const handleViewLiveSession = () => {
+    navigate(`/exam-session/${exam.id}?viewOnly=true`);
   };
 
   return (
@@ -126,7 +131,7 @@ const ExamCard = ({
           ) : (
             <div className="flex gap-2 flex-wrap">
               <Button
-                onClick={() => onViewLiveSession(exam.id)}
+                onClick={handleViewLiveSession}
                 className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
               >
                 <Play className="w-4 h-4 ml-2" />
