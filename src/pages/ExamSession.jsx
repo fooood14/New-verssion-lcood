@@ -95,9 +95,8 @@ const ExamSession = () => {
           explanation: q.explanation || '',
           explanation_video_url: q.explanation_video_url || '',
           parts: q.parts || []
-        })).sort((a, b) => (a.id || '').localeCompare(b.id || ''))
+  })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       };
-
       setExam(formattedExam);
       setTimeLeft(formattedExam.duration * 60);
       setLoading(false);
