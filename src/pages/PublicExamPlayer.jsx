@@ -386,13 +386,17 @@ const PublicExamPlayer = () => {
 
               {currentQuestion.video_url && (
                 <div className="mb-6 aspect-video bg-black border border-slate-700 rounded overflow-hidden">
-                  <iframe
-                    ref={videoRef}
-                    width="100%"
-                    height="100%"
-                    src={currentQuestion.video_url.replace('watch?v=', 'embed/') + '?autoplay=1'}
-                    allowFullScreen
-                  ></iframe>
+              <video
+  ref={videoRef}
+  className="w-full h-full"
+  src={currentQuestion.video_url}
+  controls
+  autoPlay
+  playsInline
+>
+  المتصفح لا يدعم تشغيل الفيديو.
+</video>
+
                 </div>
               )}
 
