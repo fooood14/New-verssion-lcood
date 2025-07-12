@@ -202,7 +202,10 @@ const PublicExamPlayer = () => {
 
   // السؤال الحالي والإجابات المختارة
   const currentQuestion = exam.questions[currentQuestionIndex];
-  const currentAnswers = answers[currentQuestion.id] || [];
+  const currentAnswers = Array.isArray(answers[currentQuestion.id])
+  ? answers[currentQuestion.id]
+  : [];
+
 
   return (
     <div className="min-h-screen p-4 flex flex-col items-center justify-center">
