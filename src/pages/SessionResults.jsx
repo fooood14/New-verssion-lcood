@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
@@ -55,29 +55,22 @@ const SessionResults = () => {
   const [subscribedChannel, setSubscribedChannel] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // دالة للتحقق من صحة الإجابة (مع دعم السؤال المركب)
   const isCorrect = (userAnswers = [], correctAnswers = [], question) => {
-  if (!question) return false;
+    if (!question) return false;
 
-  // السؤال المركب
-  if (question.question_type === 'compound') {
-    if (!Array.isArray(question.parts) || !Array.isArray(userAnswers)) return false;
-    // نتحقق أن جميع الأشطر أُجابت بشكل صحيح
-    return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
-  }
+    if (question.question_type === 'compound') {
+      if (!Array.isArray(question.parts) || !Array.isArray(userAnswers)) return false;
+      return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
+    }
 
-  // الأسئلة العادية (إجابة واحدة أو متعددة)
-  if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
-  if (userAnswers.length !== correctAnswers.length) return false;
-  const sortedUser = [...userAnswers].sort();
-  const sortedCorrect = [...correctAnswers].sort();
-  return sortedUser.every((val, i) => val === sortedCorrect[i]);
-};
+    if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
+    if (userAnswers.length !== correctAnswers.length) return false;
+    const sortedUser = [...userAnswers].sort();
+    const sortedCorrect = [...correctAnswers].sort();
+    return sortedUser.every((val, i) => val === sortedCorrect[i]);
+  };
 
-
-  const questionsMap = useMemo(() => {
-    if (!test || !test.questions) return new Map();
-    return new Map(test.questions.map(q => [q.id, q]));
-  }, [test]);
   const fetchAndSetData = async () => {
     setLoading(true);
 
@@ -103,6 +96,7 @@ const SessionResults = () => {
       toast({ title: 'خطأ', description: 'لم يتم العثور على أسئلة الاختبار.', variant: 'destructive' });
       setTest({ ...testData, questions: [] });
     } else {
+      // ترتيب الأسئلة حسب id أو حسب ترتيب معين
       const sortedQuestions = (questionsData || []).sort((a, b) =>
         (a.id || '').localeCompare(b.id || '')
       );
@@ -175,6 +169,7 @@ const SessionResults = () => {
       if (subscribedChannel) supabase.removeChannel(subscribedChannel);
     };
   }, [testId, navigate]);
+
   const handleResetSession = async () => {
     const { error: resultsError } = await supabase
       .from('test_results')
@@ -298,6 +293,7 @@ const SessionResults = () => {
       });
     }
   };
+
   if (loading || !test) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
@@ -453,11 +449,10 @@ const SessionResults = () => {
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-4 py-4">
-                                {test.questions.map((q, i) => {
-                                  const question = questionsMap.get(q.id);
+                                {test.questions.map((question, i) => {
                                   if (!question) return null;
 
-                                  const userAnswers = result.answers[q.id] || [];
+                                  const userAnswers = result.answers[question.id] || [];
                                   const correct = isCorrect(userAnswers, question.correct_answers, question);
 
                                   const isCompound = question.question_type === 'compound';
@@ -475,7 +470,7 @@ const SessionResults = () => {
 
                                   return (
                                     <div
-                                      key={q.id}
+                                      key={question.id}
                                       className={`p-4 rounded-lg border-2 ${
                                         correct
                                           ? 'border-green-500/50 bg-green-500/10'
