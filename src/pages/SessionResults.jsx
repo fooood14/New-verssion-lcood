@@ -92,14 +92,12 @@ const SessionResults = () => {
       navigate('/dashboard');
       return;
     }
-const questionSourceId = testData.original_test_id || testData.id;
 
+    const questionSourceId = testData.original_test_id || testData.id;
     const { data: questionsData, error: questionsError } = await supabase
-  .from('questions')
-  .select('*')
-.eq('test_id', testId)
-
-  .order('order', { ascending: true });
+      .from('questions')
+      .select('*')
+      .eq('test_id', questionSourceId);
 
     if (questionsError) {
       toast({ title: 'خطأ', description: 'لم يتم العثور على أسئلة الاختبار.', variant: 'destructive' });
