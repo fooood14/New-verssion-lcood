@@ -97,9 +97,7 @@ const SessionResults = () => {
       setTest({ ...testData, questions: [] });
     } else {
       // ترتيب الأسئلة حسب id أو حسب ترتيب معين
-      const sortedQuestions = (questionsData || []).sort((a, b) =>
-        (a.id || '').localeCompare(b.id || '')
-      );
+      const sortedQuestions = (questionsData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
       setTest({ ...testData, questions: sortedQuestions });
     }
 
