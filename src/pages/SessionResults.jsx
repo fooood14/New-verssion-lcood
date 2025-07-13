@@ -444,6 +444,47 @@ const SessionResults = () => {
                   );
                 })}
               </div>
+              {/* ✅ زر عرض الشرح والفيديو */}
+<Dialog>
+  <DialogTrigger asChild>
+    <Button
+      variant="ghost"
+      className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 mt-6"
+    >
+      📘 عرض الشرح والفيديو
+    </Button>
+  </DialogTrigger>
+  <DialogContent className="max-w-3xl bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>الشرح الكامل للسؤال</DialogTitle>
+      <DialogDescription>
+        {question.question_text}
+      </DialogDescription>
+    </DialogHeader>
+
+    {question.explanation && (
+      <div className="mt-4 space-y-2">
+        <p className="font-bold text-yellow-300">📘 الشرح:</p>
+        <p className="text-slate-300 whitespace-pre-wrap">{question.explanation}</p>
+      </div>
+    )}
+
+    {question.explanation_video_url && (
+      <div className="mt-6">
+        <p className="font-bold text-yellow-300 mb-2">🎥 فيديو الشرح:</p>
+        <video
+          src={question.explanation_video_url}
+          controls
+          className="w-full rounded border border-slate-600"
+        />
+      </div>
+    )}
+
+    {(!question.explanation && !question.explanation_video_url) && (
+      <p className="text-slate-400 mt-6">لا يوجد شرح متوفر لهذا السؤال.</p>
+    )}
+  </DialogContent>
+</Dialog>
             </DialogContent>
           </Dialog>
         );
