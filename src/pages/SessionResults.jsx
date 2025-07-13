@@ -81,7 +81,6 @@ const SessionResults = () => {
       .single();
 
     if (testError || !testData) {
-      toast({ title: 'خطأ', description: 'لم يتم العثور على الاختبار.', variant: 'destructive' });
       navigate('/dashboard');
       return;
     }
