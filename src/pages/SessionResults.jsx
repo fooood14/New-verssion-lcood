@@ -330,8 +330,6 @@ const SessionResults = () => {
         <p className="text-lg md:text-xl text-gray-300">
           مراقبة مباشرة لنتائج المشاركين
         </p>
-      </motion.div>
-
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6 bg-slate-800/30 border-slate-700">
           <CardHeader className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
