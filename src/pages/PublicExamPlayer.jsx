@@ -122,11 +122,6 @@ const PublicExamPlayer = () => {
         .single();
 
       if (error || !data) {
-        toast({
-          title: 'خطأ',
-          description: 'الاختبار غير موجود.',
-          variant: 'destructive',
-        });
         navigate('/');
         return;
       }
