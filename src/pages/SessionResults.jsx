@@ -55,8 +55,10 @@ const SessionResults = () => {
   const [subscribedChannel, setSubscribedChannel] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // حالة التحكم في عرض الأجوبة الخاطئة فقط
   const [showWrongOnly, setShowWrongOnly] = useState(false);
 
+  // دالة للتحقق من صحة الإجابة (مع دعم السؤال المركب)
   const isCorrect = (userAnswers = [], correctAnswers = [], question) => {
     if (!question) return false;
 
@@ -72,11 +74,13 @@ const SessionResults = () => {
     return sortedUser.every((val, i) => val === sortedCorrect[i]);
   };
 
+  // ترجع النتائج لكن فقط المشاركين اللي جاوبو غلط على واحد أو أكثر من الأسئلة
   const filterWrongAnswers = () => {
     if (!test || !test.questions) return [];
 
     return results
       .map(result => {
+        // جمع أسئلة جاوب عليها خطأ فقط
         const wrongQuestions = test.questions.filter(question => {
           const userAnswers = result.answers[question.id] || [];
           return !isCorrect(userAnswers, question.correct_answers, question);
@@ -87,6 +91,7 @@ const SessionResults = () => {
       .filter(result => result.wrongQuestions.length > 0);
   };
 
+  // حسب حالة العرض نعرض الكل أو الخطأ فقط
   const displayedResults = showWrongOnly ? filterWrongAnswers() : results;
 
   const fetchAndSetData = async () => {
@@ -346,6 +351,7 @@ const SessionResults = () => {
         مراقبة مباشرة لنتائج المشاركين
       </p>
 
+      {/* زر تبديل عرض الأجوبة الخاطئة */}
       <Button
         onClick={() => setShowWrongOnly(prev => !prev)}
         className="mb-6"
@@ -446,6 +452,7 @@ const SessionResults = () => {
                             </p>
                           </div>
 
+                          {/* إظهار النتائج كاملة فقط إذا عرضنا كل الأجوبة */}
                           {!showWrongOnly && (
                             <div className="flex items-center gap-4 text-center">
                               <div>
@@ -521,13 +528,13 @@ const SessionResults = () => {
                                                       شطر {partIdx + 1}: {part.text}
                                                     </p>
                                                     <p
-                                                      className={`ml-4 font-semibold ${
+                                                      className={`ml-4 ${
                                                         selected === part.correct_answer
                                                           ? 'text-green-400'
                                                           : 'text-red-400 line-through'
                                                       }`}
                                                     >
-                                                      إجابة المشترك: {selected || 'لم يجب'}
+                                                      {selected || 'لم يجب'}
                                                     </p>
                                                     {selected !== part.correct_answer && (
                                                       <p className="ml-4 text-green-400">
@@ -540,8 +547,8 @@ const SessionResults = () => {
                                             </div>
                                           ) : (
                                             <div>
-                                              <p className="text-yellow-400 mb-1 font-semibold">
-                                                إجابة المشترك:
+                                              <p className="text-yellow-400 mb-1">
+                                                إجابة المشارك:
                                               </p>
                                               {userAnswers.length > 0 ? (
                                                 userAnswers.map((ans, idx) => (
@@ -559,9 +566,11 @@ const SessionResults = () => {
                                               ) : (
                                                 <p className="ml-4 text-red-400">لم يجب</p>
                                               )}
-                                              <p className="ml-4 text-green-400 font-semibold">
-                                                الإجابة الصحيحة: {question.correct_answers.join(', ')}
-                                              </p>
+                                              {!correct && (
+                                                <p className="ml-4 text-green-400">
+                                                  الإجابة الصحيحة: {question.correct_answers.join(', ')}
+                                                </p>
+                                              )}
                                             </div>
                                           )}
                                         </div>
@@ -570,40 +579,10 @@ const SessionResults = () => {
                                   </div>
                                 </DialogContent>
                               </Dialog>
-
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="destructive"
-                                    size="icon"
-                                    className="hover:bg-red-700"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="bg-slate-900 border-slate-700 text-white">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      سيتم حذف نتيجة هذا المشارك نهائياً.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() =>
-                                        handleDeleteResult(result.id, result.participant_id)
-                                      }
-                                      className="bg-red-600 hover:bg-red-700"
-                                    >
-                                      حذف
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
                             </div>
                           )}
 
+                          {/* في حالة عرض الأجوبة الخاطئة فقط نعرض الأسئلة الخطأ فقط */}
                           {showWrongOnly && (
                             <div className="w-full mt-4">
                               <h3 className="text-lg font-semibold mb-2 text-red-400">الأجوبة الخاطئة</h3>
@@ -640,13 +619,13 @@ const SessionResults = () => {
                                                 شطر {partIdx + 1}: {part.text}
                                               </p>
                                               <p
-                                                className={`ml-4 font-semibold ${
+                                                className={`ml-4 ${
                                                   selected === part.correct_answer
                                                     ? 'text-green-400'
                                                     : 'text-red-400 line-through'
                                                 }`}
                                               >
-                                                إجابة المشترك: {selected || 'لم يجب'}
+                                                {selected || 'لم يجب'}
                                               </p>
                                               {selected !== part.correct_answer && (
                                                 <p className="ml-4 text-green-400">
@@ -659,9 +638,7 @@ const SessionResults = () => {
                                       </div>
                                     ) : (
                                       <div>
-                                        <p className="text-yellow-400 mb-1 font-semibold">
-                                          إجابة المشترك:
-                                        </p>
+                                        <p className="text-yellow-400 mb-1">إجابة المشارك:</p>
                                         {userAnswers.length > 0 ? (
                                           userAnswers.map((ans, idx) => (
                                             <p
@@ -678,7 +655,7 @@ const SessionResults = () => {
                                         ) : (
                                           <p className="ml-4 text-red-400">لم يجب</p>
                                         )}
-                                        <p className="ml-4 text-green-400 font-semibold">
+                                        <p className="ml-4 text-green-400">
                                           الإجابة الصحيحة: {question.correct_answers.join(', ')}
                                         </p>
                                       </div>
