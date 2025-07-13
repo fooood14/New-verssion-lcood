@@ -55,6 +55,9 @@ const SessionResults = () => {
   const [subscribedChannel, setSubscribedChannel] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // حالة التحكم في عرض الأجوبة الخاطئة فقط
+  const [showWrongOnly, setShowWrongOnly] = useState(false);
+
   // دالة للتحقق من صحة الإجابة (مع دعم السؤال المركب)
   const isCorrect = (userAnswers = [], correctAnswers = [], question) => {
     if (!question) return false;
@@ -70,6 +73,26 @@ const SessionResults = () => {
     const sortedCorrect = [...correctAnswers].sort();
     return sortedUser.every((val, i) => val === sortedCorrect[i]);
   };
+
+  // ترجع النتائج لكن فقط المشاركين اللي جاوبو غلط على واحد أو أكثر من الأسئلة
+  const filterWrongAnswers = () => {
+    if (!test || !test.questions) return [];
+
+    return results
+      .map(result => {
+        // جمع أسئلة جاوب عليها خطأ فقط
+        const wrongQuestions = test.questions.filter(question => {
+          const userAnswers = result.answers[question.id] || [];
+          return !isCorrect(userAnswers, question.correct_answers, question);
+        });
+
+        return { ...result, wrongQuestions };
+      })
+      .filter(result => result.wrongQuestions.length > 0);
+  };
+
+  // حسب حالة العرض نعرض الكل أو الخطأ فقط
+  const displayedResults = showWrongOnly ? filterWrongAnswers() : results;
 
   const fetchAndSetData = async () => {
     setLoading(true);
@@ -95,7 +118,6 @@ const SessionResults = () => {
       toast({ title: 'خطأ', description: 'لم يتم العثور على أسئلة الاختبار.', variant: 'destructive' });
       setTest({ ...testData, questions: [] });
     } else {
-      // ترتيب الأسئلة حسب id أو حسب ترتيب معين
       const sortedQuestions = (questionsData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
       setTest({ ...testData, questions: sortedQuestions });
     }
@@ -313,22 +335,30 @@ const SessionResults = () => {
         >
           <ArrowRight className="w-4 h-4 ml-2" /> العودة
         </Button>
-        {/* ✅ زر عرض الجلسة */}
-    <Button
-      onClick={() => navigate(`/public-exam-player/${testId}`)}
-      className="bg-green-600 hover:bg-green-700 text-white"
-    >
-      <ArrowRight className="w-4 h-4 ml-2" />
-      عرض الجلسة
-    </Button>
-</motion.div>
+        <Button
+          onClick={() => navigate(`/public-exam-player/${testId}`)}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <ArrowRight className="w-4 h-4 ml-2" />
+          عرض الجلسة
+        </Button>
+      </motion.div>
 
-        <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent mb-2">
-          {test.title}
-        </h1>
-        <p className="text-lg md:text-xl text-gray-300">
-          مراقبة مباشرة لنتائج المشاركين
-        </p>
+      <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent mb-2">
+        {test.title}
+      </h1>
+      <p className="text-lg md:text-xl text-gray-300 mb-4">
+        مراقبة مباشرة لنتائج المشاركين
+      </p>
+
+      {/* زر تبديل عرض الأجوبة الخاطئة */}
+      <Button
+        onClick={() => setShowWrongOnly(prev => !prev)}
+        className="mb-6"
+      >
+        {showWrongOnly ? 'عرض جميع الأجوبة' : 'عرض الأجوبة الخاطئة فقط'}
+      </Button>
+
       <div className="max-w-6xl mx-auto">
         <Card className="mb-6 bg-slate-800/30 border-slate-700">
           <CardHeader className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
@@ -379,10 +409,7 @@ const SessionResults = () => {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleResetSession}
-                      className="bg-orange-600 hover:bg-orange-700"
-                    >
+                    <AlertDialogAction onClick={handleResetSession} className="bg-orange-600 hover:bg-orange-700">
                       تأكيد
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -391,8 +418,9 @@ const SessionResults = () => {
             </div>
           </CardHeader>
         </Card>
+
         <div id="results-container">
-          {results.length === 0 ? (
+          {displayedResults.length === 0 ? (
             <Card className="text-center p-8 bg-slate-800/50 border-slate-700">
               <BarChart2 className="w-16 h-16 mx-auto text-slate-500 mb-4" />
               <CardTitle className="text-2xl text-white">في انتظار المشاركين...</CardTitle>
@@ -403,7 +431,7 @@ const SessionResults = () => {
           ) : (
             <div className="space-y-4">
               <AnimatePresence>
-                {results.map((result) => (
+                {displayedResults.map((result) => (
                   <motion.div
                     key={result.id}
                     initial={{ opacity: 0, x: -50 }}
@@ -411,219 +439,232 @@ const SessionResults = () => {
                     exit={{ opacity: 0, x: 50 }}
                   >
                     <Card className="bg-slate-800/50 border-slate-700 text-white">
-                      <CardContent className="p-4 flex items-center justify-between flex-wrap gap-4">
-                        <div className="flex-1 min-w-[200px]">
-                          <p className="font-bold text-lg flex items-center gap-2">
-                            <User className="w-4 h-4 text-slate-400" />{' '}
-                            {result.session_participants?.name || 'مشارك غير معروف'}
-                          </p>
-                          <p className="text-sm text-slate-400 flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-slate-400" />{' '}
-                            {result.session_participants?.phone_number || 'غير متوفر'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4 text-center">
-                          <div>
-                            <p className="font-bold text-xl text-green-400">
-                              {result.score}/{result.total_questions}
+                      <CardContent className="p-4 flex flex-col gap-4">
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                          <div className="flex-1 min-w-[200px]">
+                            <p className="font-bold text-lg flex items-center gap-2">
+                              <User className="w-4 h-4 text-slate-400" />{' '}
+                              {result.session_participants?.name || 'مشارك غير معروف'}
                             </p>
-                            <p className="text-xs text-slate-400">النتيجة</p>
-                          </div>
-                          <div>
-                            <p className="font-bold text-xl text-blue-400">
-                              {result.percentage}%
+                            <p className="text-sm text-slate-400 flex items-center gap-2">
+                              <Phone className="w-4 h-4 text-slate-400" />{' '}
+                              {result.session_participants?.phone_number || 'غير متوفر'}
                             </p>
-                            <p className="text-xs text-slate-400">متوسط النجاح</p>
                           </div>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="text-yellow-400 border-yellow-500 hover:bg-yellow-500/20"
-                              >
-                                مراجعة
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-3xl bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>
-                                  إجابات: {result.session_participants?.name}
-                                </DialogTitle>
-                                <DialogDescription>
-                                  مراجعة تفصيلية لإجابات المشارك.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                {test.questions.map((question, i) => {
-                                  if (!question) return null;
 
-                                  const userAnswers = result.answers[question.id] || [];
-                                  const correct = isCorrect(userAnswers, question.correct_answers, question);
+                          {/* إظهار النتائج كاملة فقط إذا عرضنا كل الأجوبة */}
+                          {!showWrongOnly && (
+                            <div className="flex items-center gap-4 text-center">
+                              <div>
+                                <p className="font-bold text-xl text-green-400">
+                                  {result.score}/{result.total_questions}
+                                </p>
+                                <p className="text-xs text-slate-400">النتيجة</p>
+                              </div>
+                              <div>
+                                <p className="font-bold text-xl text-blue-400">
+                                  {result.percentage}%
+                                </p>
+                                <p className="text-xs text-slate-400">متوسط النجاح</p>
+                              </div>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className="text-yellow-400 border-yellow-500 hover:bg-yellow-500/20"
+                                  >
+                                    مراجعة
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-3xl bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>
+                                      إجابات: {result.session_participants?.name}
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                      مراجعة تفصيلية لإجابات المشارك.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4 py-4">
+                                    {test.questions.map((question, i) => {
+                                      if (!question) return null;
 
-                                  const isCompound = question.question_type === 'compound';
+                                      const userAnswers = result.answers[question.id] || [];
+                                      const correct = isCorrect(userAnswers, question.correct_answers, question);
 
-                                  let parts = [];
-                                  if (isCompound) {
-                                    try {
-                                      parts = Array.isArray(question.parts)
-                                        ? question.parts
-                                        : JSON.parse(question.parts || '[]');
-                                    } catch {
-                                      parts = [];
-                                    }
-                                  }
+                                      const isCompound = question.question_type === 'compound';
 
-                                  return (
-                                    <div
-                                      key={question.id}
-                                      className={`p-4 rounded-lg border-2 ${
-                                        correct
-                                          ? 'border-green-500/50 bg-green-500/10'
-                                          : 'border-red-500/50 bg-red-500/10'
-                                      }`}
-                                    >
-                                      <p className="font-semibold mb-2">
-                                        {i + 1}. {question.question_text}
-                                      </p>
+                                      let parts = [];
+                                      if (isCompound) {
+                                        try {
+                                          parts = Array.isArray(question.parts)
+                                            ? question.parts
+                                            : JSON.parse(question.parts || '[]');
+                                        } catch {
+                                          parts = [];
+                                        }
+                                      }
 
-                                      {isCompound && parts.length > 0 ? (
-                                        <div className="space-y-4 mb-4">
-                                          {parts.map((part, partIdx) => {
-                                            const selected = userAnswers[partIdx];
-                                            return (
-                                              <div key={partIdx}>
-                                                <p className="text-yellow-400 mb-1">
-                                                  شطر {partIdx + 1}: {part.text}
-                                                </p>
-                                                {part.options.map((opt, oIndex) => {
-                                                  const isCorrectAnswer = part.correct_answer === oIndex;
-                                                  const isUserAnswer = selected === oIndex;
-                                                  return (
-                                                    <div
-                                                      key={oIndex}
-                                                      className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
-                                                        isUserAnswer && !isCorrectAnswer
-                                                          ? 'bg-red-500/20'
-                                                          : ''
-                                                      } ${
-                                                        isCorrectAnswer
-                                                          ? 'bg-green-500/20'
-                                                          : ''
+                                      return (
+                                        <div
+                                          key={question.id}
+                                          className={`p-4 rounded-lg border-2 ${
+                                            correct
+                                              ? 'border-green-500/50 bg-green-500/10'
+                                              : 'border-red-500/50 bg-red-500/10'
+                                          }`}
+                                        >
+                                          <p className="font-semibold mb-2">
+                                            {i + 1}. {question.question_text}
+                                          </p>
+
+                                          {isCompound && parts.length > 0 ? (
+                                            <div className="space-y-4 mb-4">
+                                              {parts.map((part, partIdx) => {
+                                                const selected = userAnswers[partIdx];
+                                                return (
+                                                  <div key={partIdx}>
+                                                    <p className="text-yellow-400 mb-1">
+                                                      شطر {partIdx + 1}: {part.text}
+                                                    </p>
+                                                    <p
+                                                      className={`ml-4 ${
+                                                        selected === part.correct_answer
+                                                          ? 'text-green-400'
+                                                          : 'text-red-400 line-through'
                                                       }`}
                                                     >
-                                                      <span
-                                                        className={`${
-                                                          isCorrectAnswer
-                                                            ? 'text-green-300 font-semibold'
-                                                            : ''
-                                                        }`}
-                                                      >
-                                                        {opt}
-                                                      </span>
-                                                      {isCorrectAnswer ? (
-                                                        <Check className="w-5 h-5 text-green-400" />
-                                                      ) : (
-                                                        <div className="w-5 h-5" />
-                                                      )}
-                                                      {isUserAnswer &&
-                                                        !isCorrectAnswer && (
-                                                          <X className="w-5 h-5 text-red-400" />
-                                                        )}
-                                                    </div>
-                                                  );
-                                                })}
-                                              </div>
-                                            );
-                                          })}
+                                                      {selected || 'لم يجب'}
+                                                    </p>
+                                                    {selected !== part.correct_answer && (
+                                                      <p className="ml-4 text-green-400">
+                                                        الإجابة الصحيحة: {part.correct_answer}
+                                                      </p>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          ) : (
+                                            <div>
+                                              <p className="text-yellow-400 mb-1">
+                                                إجابة المشارك:
+                                              </p>
+                                              {userAnswers.length > 0 ? (
+                                                userAnswers.map((ans, idx) => (
+                                                  <p
+                                                    key={idx}
+                                                    className={`ml-4 ${
+                                                      question.correct_answers.includes(ans)
+                                                        ? 'text-green-400'
+                                                        : 'text-red-400 line-through'
+                                                    }`}
+                                                  >
+                                                    {ans}
+                                                  </p>
+                                                ))
+                                              ) : (
+                                                <p className="ml-4 text-red-400">لم يجب</p>
+                                              )}
+                                              {!correct && (
+                                                <p className="ml-4 text-green-400">
+                                                  الإجابة الصحيحة: {question.correct_answers.join(', ')}
+                                                </p>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
-                                      ) : (
-                                        <div className="space-y-2 mb-4">
-                                          {question.options.map((opt, oIndex) => {
-                                            const isUserAnswer = userAnswers.includes(oIndex);
-                                            const isCorrectAnswer =
-                                              question.correct_answers.includes(oIndex);
-                                            return (
-                                              <div
-                                                key={oIndex}
-                                                className={`flex items-center justify-end gap-3 p-2 rounded text-right ${
-                                                  isUserAnswer && !isCorrectAnswer
-                                                    ? 'bg-red-500/20'
-                                                    : ''
-                                                } ${
-                                                  isCorrectAnswer
-                                                    ? 'bg-green-500/20'
-                                                    : ''
+                                      );
+                                    })}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          )}
+
+                          {/* في حالة عرض الأجوبة الخاطئة فقط نعرض الأسئلة الخطأ فقط */}
+                          {showWrongOnly && (
+                            <div className="w-full mt-4">
+                              <h3 className="text-lg font-semibold mb-2 text-red-400">الأجوبة الخاطئة</h3>
+                              {result.wrongQuestions.map((question, i) => {
+                                const userAnswers = result.answers[question.id] || [];
+                                const isCompound = question.question_type === 'compound';
+
+                                let parts = [];
+                                if (isCompound) {
+                                  try {
+                                    parts = Array.isArray(question.parts)
+                                      ? question.parts
+                                      : JSON.parse(question.parts || '[]');
+                                  } catch {
+                                    parts = [];
+                                  }
+                                }
+
+                                return (
+                                  <div
+                                    key={question.id}
+                                    className="p-3 mb-3 rounded-lg border border-red-500 bg-red-900/20"
+                                  >
+                                    <p className="font-semibold mb-1">
+                                      {i + 1}. {question.question_text}
+                                    </p>
+                                    {isCompound && parts.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {parts.map((part, partIdx) => {
+                                          const selected = userAnswers[partIdx];
+                                          return (
+                                            <div key={partIdx}>
+                                              <p className="text-yellow-400 mb-1">
+                                                شطر {partIdx + 1}: {part.text}
+                                              </p>
+                                              <p
+                                                className={`ml-4 ${
+                                                  selected === part.correct_answer
+                                                    ? 'text-green-400'
+                                                    : 'text-red-400 line-through'
                                                 }`}
                                               >
-                                                <span
-                                                  className={`${
-                                                    isCorrectAnswer
-                                                      ? 'text-green-300 font-semibold'
-                                                      : ''
-                                                  }`}
-                                                >
-                                                  {opt}
-                                                </span>
-                                                {isCorrectAnswer ? (
-                                                  <Check className="w-5 h-5 text-green-400" />
-                                                ) : (
-                                                  <div className="w-5 h-5" />
-                                                )}
-                                                {isUserAnswer && !isCorrectAnswer && (
-                                                  <X className="w-5 h-5 text-red-400" />
-                                                )}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-
-                                      {question.explanation && (
-                                        <div className="mt-4 pt-4 border-t border-slate-600">
-                                          <p className="font-bold text-yellow-300 flex items-center gap-2 mb-2">
-                                            <Info size={16} /> شرح الإجابة:
-                                          </p>
-                                          <p className="text-slate-300 whitespace-pre-wrap">
-                                            {question.explanation}
-                                          </p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="bg-slate-900 border-slate-700 text-white">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  هل أنت متأكد من حذف نتيجة هذا المشارك؟ لا يمكن التراجع عن هذا الإجراء.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() =>
-                                    handleDeleteResult(result.id, result.participant_id)
-                                  }
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  حذف
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                                {selected || 'لم يجب'}
+                                              </p>
+                                              {selected !== part.correct_answer && (
+                                                <p className="ml-4 text-green-400">
+                                                  الإجابة الصحيحة: {part.correct_answer}
+                                                </p>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <p className="text-yellow-400 mb-1">إجابة المشارك:</p>
+                                        {userAnswers.length > 0 ? (
+                                          userAnswers.map((ans, idx) => (
+                                            <p
+                                              key={idx}
+                                              className={`ml-4 ${
+                                                question.correct_answers.includes(ans)
+                                                  ? 'text-green-400'
+                                                  : 'text-red-400 line-through'
+                                              }`}
+                                            >
+                                              {ans}
+                                            </p>
+                                          ))
+                                        ) : (
+                                          <p className="ml-4 text-red-400">لم يجب</p>
+                                        )}
+                                        <p className="ml-4 text-green-400">
+                                          الإجابة الصحيحة: {question.correct_answers.join(', ')}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
