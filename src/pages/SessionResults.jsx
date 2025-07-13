@@ -458,8 +458,22 @@ const SessionResults = () => {
     <DialogHeader>
       <DialogTitle>الشرح الكامل للسؤال</DialogTitle>
       <DialogDescription>
-        {question.question_text}
-      </DialogDescription>
+  <div className="space-y-4">
+    <div>
+      <h3 className="font-bold mb-1">السؤال:</h3>
+      <p>{question.question_text}</p>
+    </div>
+    <div>
+      <h4 className="font-semibold mb-1">الاختيارات:</h4>
+      <ul className="list-disc list-inside space-y-1">
+        {question.options.map((opt, idx) => (
+          <li key={idx}>{opt}</li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</DialogDescription>
+
     </DialogHeader>
 
     {question.explanation && (
