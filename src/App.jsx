@@ -91,6 +91,7 @@ function App() {
           <Route path="/results/:testId" element={<ProtectedRoute session={session}><SessionResults /></ProtectedRoute>} />
           <Route path="/session/:examId" element={<ExamSession />} />
           <Route path="/exam/:examId" element={<PublicExamPlayer />} />
+          <Route path="/public-exam-player/:examId" element={<PublicExamPlayer />} />
           <Route path="/exam-videos/:examId" element={<ExamVideos />} /> {/* ✅ المسار الجديد */}
         </Routes>
         <Toaster />
