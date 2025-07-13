@@ -28,11 +28,9 @@ const ExamCard = ({
     setDialogOpen(false);
     if (onStartSession) onStartSession(exam, withVideo);
   };
-
-  const handleViewLiveSession = () => {
-    navigate(`/exam-session/${exam.id}?viewOnly=true`);
-  };
-
+const handleViewLiveSession = () => {
+  navigate(`/public-exam-player/${exam.id}`);
+};
   return (
     <motion.div
       key={exam.id}
