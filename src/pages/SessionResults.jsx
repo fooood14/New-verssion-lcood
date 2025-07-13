@@ -1,4 +1,3 @@
-// ... جميع الاستيرادات تبقى كما هي
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,12 +55,18 @@ const SessionResults = () => {
   const [subscribedChannel, setSubscribedChannel] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // حالة التحكم في عرض الأجوبة الخاطئة فقط
+  const [showWrongOnly, setShowWrongOnly] = useState(false);
+
+  // دالة للتحقق من صحة الإجابة (مع دعم السؤال المركب)
   const isCorrect = (userAnswers = [], correctAnswers = [], question) => {
     if (!question) return false;
+
     if (question.question_type === 'compound') {
       if (!Array.isArray(question.parts) || !Array.isArray(userAnswers)) return false;
       return question.parts.every((part, idx) => userAnswers[idx] === part.correct_answer);
     }
+
     if (!Array.isArray(userAnswers) || !Array.isArray(correctAnswers)) return false;
     if (userAnswers.length !== correctAnswers.length) return false;
     const sortedUser = [...userAnswers].sort();
@@ -69,27 +74,29 @@ const SessionResults = () => {
     return sortedUser.every((val, i) => val === sortedCorrect[i]);
   };
 
-  const getIncorrectAnswersByQuestion = () => {
-    const incorrectMap = {};
+  // ترجع النتائج لكن فقط المشاركين اللي جاوبو غلط على واحد أو أكثر من الأسئلة
+  const filterWrongAnswers = () => {
+    if (!test || !test.questions) return [];
 
-    test?.questions.forEach((question) => {
-      incorrectMap[question.id] = [];
-      results.forEach((result) => {
-        const userAnswers = result.answers?.[question.id] || [];
-        if (!isCorrect(userAnswers, question.correct_answers, question)) {
-          incorrectMap[question.id].push({
-            participant: result.session_participants,
-            userAnswers,
-          });
-        }
-      });
-    });
+    return results
+      .map(result => {
+        // جمع أسئلة جاوب عليها خطأ فقط
+        const wrongQuestions = test.questions.filter(question => {
+          const userAnswers = result.answers[question.id] || [];
+          return !isCorrect(userAnswers, question.correct_answers, question);
+        });
 
-    return incorrectMap;
+        return { ...result, wrongQuestions };
+      })
+      .filter(result => result.wrongQuestions.length > 0);
   };
+
+  // حسب حالة العرض نعرض الكل أو الخطأ فقط
+  const displayedResults = showWrongOnly ? filterWrongAnswers() : results;
 
   const fetchAndSetData = async () => {
     setLoading(true);
+
     const { data: testData, error: testError } = await supabase
       .from('tests')
       .select('*, questions(*)')
@@ -97,11 +104,6 @@ const SessionResults = () => {
       .single();
 
     if (testError || !testData) {
-      toast({
-        title: 'خطأ',
-        description: 'لم يتم العثور على الاختبار.',
-        variant: 'destructive'
-      });
       navigate('/dashboard');
       return;
     }
@@ -113,11 +115,7 @@ const SessionResults = () => {
       .eq('test_id', questionSourceId);
 
     if (questionsError) {
-      toast({
-        title: 'خطأ',
-        description: 'لم يتم العثور على أسئلة الاختبار.',
-        variant: 'destructive'
-      });
+      toast({ title: 'خطأ', description: 'لم يتم العثور على أسئلة الاختبار.', variant: 'destructive' });
       setTest({ ...testData, questions: [] });
     } else {
       const sortedQuestions = (questionsData || []).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -191,10 +189,33 @@ const SessionResults = () => {
     };
   }, [testId, navigate]);
 
+  const handleResetSession = async () => {
+    const { error: resultsError } = await supabase
+      .from('test_results')
+      .delete()
+      .eq('test_id', testId);
+    const { error: participantsError } = await supabase
+      .from('session_participants')
+      .delete()
+      .eq('session_id', testId);
+    if (resultsError || participantsError) {
+      toast({
+        title: 'خطأ',
+        description: 'فشل في إعادة تعيين الجلسة.',
+        variant: 'destructive',
+      });
+    } else {
+      setResults([]);
+      toast({
+        title: 'تم بنجاح',
+        description: 'تم مسح جميع نتائج هذه الجلسة.',
+      });
+    }
+  };
+
   const handleExportToPDF = () => {
     if (isExporting) return;
     setIsExporting(true);
-
     const resultsContainer = document.getElementById('results-container');
     if (!resultsContainer) {
       toast({
@@ -218,10 +239,15 @@ const SessionResults = () => {
     })
       .then((canvas) => {
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'pt',
+          format: 'a4',
+        });
         const imgProps = pdf.getImageProperties(imgData);
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
         let heightLeft = pdfHeight;
         let position = 0;
         const pageHeight = pdf.internal.pageSize.getHeight();
@@ -238,7 +264,10 @@ const SessionResults = () => {
 
         pdf.save(`نتائج-${test.title}.pdf`);
         setIsExporting(false);
-        toast({ title: 'تم التصدير', description: 'تم إنشاء ملف PDF بنجاح.' });
+        toast({
+          title: 'تم التصدير',
+          description: 'تم إنشاء ملف PDF بنجاح.',
+        });
       })
       .catch((err) => {
         console.error('Error exporting to PDF:', err);
@@ -260,43 +289,15 @@ const SessionResults = () => {
     });
   };
 
-  const handleResetSession = async () => {
-    const { error: resultsError } = await supabase
-      .from('test_results')
-      .delete()
-      .eq('test_id', testId);
-
-    const { error: participantsError } = await supabase
-      .from('session_participants')
-      .delete()
-      .eq('session_id', testId);
-
-    if (resultsError || participantsError) {
-      toast({
-        title: 'خطأ',
-        description: 'فشل في إعادة تعيين الجلسة.',
-        variant: 'destructive',
-      });
-    } else {
-      setResults([]);
-      toast({
-        title: 'تم بنجاح',
-        description: 'تم مسح جميع نتائج هذه الجلسة.',
-      });
-    }
-  };
-
   const handleDeleteResult = async (resultId, participantId) => {
     const { error: resultError } = await supabase
       .from('test_results')
       .delete()
       .eq('id', resultId);
-
     const { error: participantError } = await supabase
       .from('session_participants')
       .delete()
       .eq('id', participantId);
-
     if (resultError || participantError) {
       toast({
         title: 'خطأ',
@@ -338,68 +339,342 @@ const SessionResults = () => {
           onClick={() => navigate(`/public-exam-player/${testId}`)}
           className="bg-green-600 hover:bg-green-700 text-white"
         >
-          <ArrowRight className="w-4 h-4 ml-2" /> عرض الجلسة
+          <ArrowRight className="w-4 h-4 ml-2" />
+          عرض الجلسة
         </Button>
       </motion.div>
 
-      {/* 🔴 هنا يتم إدراج زر تحليل الأخطاء */}
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="outline" className="text-red-400 border-red-500 hover:bg-red-500/20">
-            تحليل الأخطاء
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-4xl bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>تحليل الأسئلة التي أُجيبت بشكل خاطئ</DialogTitle>
-            <DialogDescription>عرض تفصيلي للأسئلة التي أخطأ فيها مشاركون.</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {Object.entries(getIncorrectAnswersByQuestion()).map(([questionId, wrongList]) => {
-              const question = test.questions.find((q) => q.id.toString() === questionId);
-              if (!question || wrongList.length === 0) return null;
+      <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent mb-2">
+        {test.title}
+      </h1>
+      <p className="text-lg md:text-xl text-gray-300 mb-4">
+        مراقبة مباشرة لنتائج المشاركين
+      </p>
 
-              return (
-                <div key={questionId} className="p-4 border border-red-500 bg-red-500/10 rounded">
-                  <p className="font-bold text-white mb-2">{question.question_text}</p>
-                  <ul className="space-y-2 text-sm">
-                    {wrongList.map((item, idx) => (
-                      <li key={idx} className="p-2 border border-slate-600 rounded bg-slate-800/50">
-                        <p>
-                          👤 <span className="font-bold text-yellow-300">{item.participant?.name || 'مجهول'}</span>
-                        </p>
-                        <p>
-                          📞 <span className="text-slate-400">{item.participant?.phone_number || 'غير متوفر'}</span>
-                        </p>
-                        <p>
-                          ❌ إجابته:{" "}
-                          <span className="text-red-400">
-                            {Array.isArray(item.userAnswers)
-                              ? item.userAnswers.map((i) => question.options?.[i]).join(", ")
-                              : 'غير متوفرة'}
-                          </span>
-                        </p>
-                        <p>
-                          ✅ الإجابة الصحيحة:{" "}
-                          <span className="text-green-400">
-                            {question.question_type === "compound"
-                              ? (Array.isArray(question.parts)
-                                  ? question.parts.map((part) => part.options?.[part.correct_answer]).join(" / ")
-                                  : '')
-                              : (question.correct_answers || []).map((i) => question.options?.[i]).join(", ")}
-                          </span>
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* زر تبديل عرض الأجوبة الخاطئة */}
+      <Button
+        onClick={() => setShowWrongOnly(prev => !prev)}
+        className="mb-6"
+      >
+        {showWrongOnly ? 'عرض جميع الأجوبة' : 'عرض الأجوبة الخاطئة فقط'}
+      </Button>
 
-      {/* ... تكملة الكود */}
+      <div className="max-w-6xl mx-auto">
+        <Card className="mb-6 bg-slate-800/30 border-slate-700">
+          <CardHeader className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
+            <div>
+              <CardTitle className="text-white">إدارة الجلسة</CardTitle>
+              <CardDescription className="text-slate-400">
+                المشاركون: {results.length}
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="text-green-400 border-green-500 hover:bg-green-500/20"
+                onClick={handleCopyLink}
+              >
+                <Copy className="w-4 h-4 ml-2" /> نسخ الرابط
+              </Button>
+              <Button
+                variant="outline"
+                className="text-blue-400 border-blue-500 hover:bg-blue-500/20"
+                onClick={handleExportToPDF}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  'جاري التصدير...'
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4 ml-2" /> تصدير PDF
+                  </>
+                )}
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/20"
+                  >
+                    <RotateCw className="w-5 h-5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-slate-900 border-slate-700 text-white">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      سيتم حذف جميع نتائج المشاركين في هذه الجلسة بشكل نهائي.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetSession} className="bg-orange-600 hover:bg-orange-700">
+                      تأكيد
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <div id="results-container">
+          {displayedResults.length === 0 ? (
+            <Card className="text-center p-8 bg-slate-800/50 border-slate-700">
+              <BarChart2 className="w-16 h-16 mx-auto text-slate-500 mb-4" />
+              <CardTitle className="text-2xl text-white">في انتظار المشاركين...</CardTitle>
+              <CardDescription className="text-slate-400 mt-2">
+                شارك رابط الاختبار أعلاه وانتظر وصول النتائج.
+              </CardDescription>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <AnimatePresence>
+                {displayedResults.map((result) => (
+                  <motion.div
+                    key={result.id}
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 50 }}
+                  >
+                    <Card className="bg-slate-800/50 border-slate-700 text-white">
+                      <CardContent className="p-4 flex flex-col gap-4">
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                          <div className="flex-1 min-w-[200px]">
+                            <p className="font-bold text-lg flex items-center gap-2">
+                              <User className="w-4 h-4 text-slate-400" />{' '}
+                              {result.session_participants?.name || 'مشارك غير معروف'}
+                            </p>
+                            <p className="text-sm text-slate-400 flex items-center gap-2">
+                              <Phone className="w-4 h-4 text-slate-400" />{' '}
+                              {result.session_participants?.phone_number || 'غير متوفر'}
+                            </p>
+                          </div>
+
+                          {/* إظهار النتائج كاملة فقط إذا عرضنا كل الأجوبة */}
+                          {!showWrongOnly && (
+                            <div className="flex items-center gap-4 text-center">
+                              <div>
+                                <p className="font-bold text-xl text-green-400">
+                                  {result.score}/{result.total_questions}
+                                </p>
+                                <p className="text-xs text-slate-400">النتيجة</p>
+                              </div>
+                              <div>
+                                <p className="font-bold text-xl text-blue-400">
+                                  {result.percentage}%
+                                </p>
+                                <p className="text-xs text-slate-400">متوسط النجاح</p>
+                              </div>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className="text-yellow-400 border-yellow-500 hover:bg-yellow-500/20"
+                                  >
+                                    مراجعة
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-3xl bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>
+                                      إجابات: {result.session_participants?.name}
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                      مراجعة تفصيلية لإجابات المشارك.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4 py-4">
+                                    {test.questions.map((question, i) => {
+                                      if (!question) return null;
+
+                                      const userAnswers = result.answers[question.id] || [];
+                                      const correct = isCorrect(userAnswers, question.correct_answers, question);
+
+                                      const isCompound = question.question_type === 'compound';
+
+                                      let parts = [];
+                                      if (isCompound) {
+                                        try {
+                                          parts = Array.isArray(question.parts)
+                                            ? question.parts
+                                            : JSON.parse(question.parts || '[]');
+                                        } catch {
+                                          parts = [];
+                                        }
+                                      }
+
+                                      return (
+                                        <div
+                                          key={question.id}
+                                          className={`p-4 rounded-lg border-2 ${
+                                            correct
+                                              ? 'border-green-500/50 bg-green-500/10'
+                                              : 'border-red-500/50 bg-red-500/10'
+                                          }`}
+                                        >
+                                          <p className="font-semibold mb-2">
+                                            {i + 1}. {question.question_text}
+                                          </p>
+
+                                          {isCompound && parts.length > 0 ? (
+                                            <div className="space-y-4 mb-4">
+                                              {parts.map((part, partIdx) => {
+                                                const selected = userAnswers[partIdx];
+                                                return (
+                                                  <div key={partIdx}>
+                                                    <p className="text-yellow-400 mb-1">
+                                                      شطر {partIdx + 1}: {part.text}
+                                                    </p>
+                                                    <p
+                                                      className={`ml-4 ${
+                                                        selected === part.correct_answer
+                                                          ? 'text-green-400'
+                                                          : 'text-red-400 line-through'
+                                                      }`}
+                                                    >
+                                                      {selected || 'لم يجب'}
+                                                    </p>
+                                                    {selected !== part.correct_answer && (
+                                                      <p className="ml-4 text-green-400">
+                                                        الإجابة الصحيحة: {part.correct_answer}
+                                                      </p>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          ) : (
+                                            <div>
+                                              <p className="text-yellow-400 mb-1">
+                                                إجابة المشارك:
+                                              </p>
+                                              {userAnswers.length > 0 ? (
+                                                userAnswers.map((ans, idx) => (
+                                                  <p
+                                                    key={idx}
+                                                    className={`ml-4 ${
+                                                      question.correct_answers.includes(ans)
+                                                        ? 'text-green-400'
+                                                        : 'text-red-400 line-through'
+                                                    }`}
+                                                  >
+                                                    {ans}
+                                                  </p>
+                                                ))
+                                              ) : (
+                                                <p className="ml-4 text-red-400">لم يجب</p>
+                                              )}
+                                              {!correct && (
+                                                <p className="ml-4 text-green-400">
+                                                  الإجابة الصحيحة: {question.correct_answers.join(', ')}
+                                                </p>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          )}
+
+                          {/* في حالة عرض الأجوبة الخاطئة فقط نعرض الأسئلة الخطأ فقط */}
+                          {showWrongOnly && (
+                            <div className="w-full mt-4">
+                              <h3 className="text-lg font-semibold mb-2 text-red-400">الأجوبة الخاطئة</h3>
+                              {result.wrongQuestions.map((question, i) => {
+                                const userAnswers = result.answers[question.id] || [];
+                                const isCompound = question.question_type === 'compound';
+
+                                let parts = [];
+                                if (isCompound) {
+                                  try {
+                                    parts = Array.isArray(question.parts)
+                                      ? question.parts
+                                      : JSON.parse(question.parts || '[]');
+                                  } catch {
+                                    parts = [];
+                                  }
+                                }
+
+                                return (
+                                  <div
+                                    key={question.id}
+                                    className="p-3 mb-3 rounded-lg border border-red-500 bg-red-900/20"
+                                  >
+                                    <p className="font-semibold mb-1">
+                                      {i + 1}. {question.question_text}
+                                    </p>
+                                    {isCompound && parts.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {parts.map((part, partIdx) => {
+                                          const selected = userAnswers[partIdx];
+                                          return (
+                                            <div key={partIdx}>
+                                              <p className="text-yellow-400 mb-1">
+                                                شطر {partIdx + 1}: {part.text}
+                                              </p>
+                                              <p
+                                                className={`ml-4 ${
+                                                  selected === part.correct_answer
+                                                    ? 'text-green-400'
+                                                    : 'text-red-400 line-through'
+                                                }`}
+                                              >
+                                                {selected || 'لم يجب'}
+                                              </p>
+                                              {selected !== part.correct_answer && (
+                                                <p className="ml-4 text-green-400">
+                                                  الإجابة الصحيحة: {part.correct_answer}
+                                                </p>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <p className="text-yellow-400 mb-1">إجابة المشارك:</p>
+                                        {userAnswers.length > 0 ? (
+                                          userAnswers.map((ans, idx) => (
+                                            <p
+                                              key={idx}
+                                              className={`ml-4 ${
+                                                question.correct_answers.includes(ans)
+                                                  ? 'text-green-400'
+                                                  : 'text-red-400 line-through'
+                                              }`}
+                                            >
+                                              {ans}
+                                            </p>
+                                          ))
+                                        ) : (
+                                          <p className="ml-4 text-red-400">لم يجب</p>
+                                        )}
+                                        <p className="ml-4 text-green-400">
+                                          الإجابة الصحيحة: {question.correct_answers.join(', ')}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
