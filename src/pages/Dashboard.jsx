@@ -218,13 +218,7 @@ const Dashboard = () => {
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-10 gap-4">
           <h2 className="text-xl sm:text-2xl font-semibold text-white">اختباراتك</h2>
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-          >
-            <Plus className="w-4 h-4 ml-2" />
-            إنشاء اختبار جديد
-          </Button>
+      
         </div>
 
         {loading ? (
