@@ -364,6 +364,96 @@ const SessionResults = () => {
                 )}
               </Button>
               <AlertDialog>
+                <Dialog>
+  <DialogTrigger asChild>
+    <Button variant="outline" className="text-red-400 border-red-500 hover:bg-red-500/20">
+      <BarChart2 className="w-4 h-4 ml-2" />
+      تحليل الأخطاء
+    </Button>
+  </DialogTrigger>
+  <DialogContent className="max-w-5xl bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>تحليل الأخطاء</DialogTitle>
+      <DialogDescription>عرض الأسئلة التي أجاب عنها المشاركون بشكل خاطئ.</DialogDescription>
+    </DialogHeader>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+      {test.questions.map((question, qIndex) => {
+        const wrongParticipants = results.filter((res) => {
+          const userAnswers = res.answers?.[question.id] || [];
+
+          if (question.question_type === 'compound') {
+            const parts = Array.isArray(question.parts) ? question.parts : [];
+            return parts.some((part, idx) => userAnswers[idx] !== part.correct_answer);
+          } else {
+            const sortedUser = [...userAnswers].sort();
+            const sortedCorrect = [...(question.correct_answers || [])].sort();
+            if (sortedUser.length !== sortedCorrect.length) return true;
+            return sortedUser.some((val, i) => val !== sortedCorrect[i]);
+          }
+        });
+
+        if (wrongParticipants.length === 0) return null;
+
+        return (
+          <Dialog key={question.id}>
+            <DialogTrigger asChild>
+              <div className="bg-red-500/20 border border-red-500 rounded p-4 cursor-pointer hover:bg-red-500/30">
+                <p className="font-semibold text-red-300 mb-2">
+                  ❌ {qIndex + 1}. {question.question_text}
+                </p>
+                <p className="text-sm text-red-200">عدد المشاركين الذين أخطأوا: {wrongParticipants.length}</p>
+              </div>
+            </DialogTrigger>
+
+            <DialogContent className="max-w-3xl bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>تفاصيل الأخطاء في هذا السؤال</DialogTitle>
+                <DialogDescription>{question.question_text}</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 mt-4">
+                {wrongParticipants.map((res, idx) => {
+                  const userAnswers = res.answers?.[question.id] || [];
+                  const isCompound = question.question_type === 'compound';
+                  const parts = Array.isArray(question.parts) ? question.parts : [];
+
+                  return (
+                    <div key={idx} className="border border-slate-600 rounded p-4">
+                      <p className="font-bold mb-2">
+                        👤 {res.session_participants?.name || 'غير معروف'} - 📞 {res.session_participants?.phone_number || 'غير متوفر'}
+                      </p>
+
+                      {isCompound && parts.length > 0 ? (
+                        parts.map((part, partIdx) => (
+                          <div key={partIdx} className="mb-2">
+                            <p className="text-yellow-400">شطر {partIdx + 1}: {part.text}</p>
+                            <p className="text-slate-300">إجابته: {part.options?.[userAnswers[partIdx]] || 'لا شيء'}</p>
+                            <p className="text-green-400">الصحيح: {part.options?.[part.correct_answer]}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div>
+                          <p className="text-slate-300">
+                            إجاباته: {userAnswers.map(i => question.options?.[i]).join(', ') || 'لا شيء'}
+                          </p>
+                          <p className="text-green-400">
+                            الإجابة الصحيحة: {(question.correct_answers || []).map(i => question.options?.[i]).join(', ')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })}
+    </div>
+  </DialogContent>
+</Dialog>
+
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
