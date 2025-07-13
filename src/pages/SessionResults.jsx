@@ -322,8 +322,6 @@ const SessionResults = () => {
       <ArrowRight className="w-4 h-4 ml-2" />
       عرض الجلسة
     </Button>
-</motion.div>
-
         <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent mb-2">
           {test.title}
         </h1>
