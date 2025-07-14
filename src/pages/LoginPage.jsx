@@ -90,7 +90,7 @@ const LoginPage = () => {
       >
         <div className="flex justify-center mb-6">
             <img 
-            src="https://storage.googleapis.com/hostinger-horizons-assets-prod/c3b1096e-23b4-4946-8835-5c8199a4ad3b/c035ba67552d9fbfd218dcbf2db7928b.png" 
+            src="/IMG_4216.png"
             alt="شعار كود السياقة الإصدار الجديد" 
             className="w-64 h-64 md:w-80 md:h-80 object-contain drop-shadow-2xl"
             />
