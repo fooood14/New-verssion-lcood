@@ -26,7 +26,8 @@ const Logo = () => {
                 <img  
                     alt="شعار كود السياقة الإصدار الجديد" 
                     className="w-52 h-52 md:w-60 md:h-60 object-contain drop-shadow-lg"
-                 src="https://storage.googleapis.com/hostinger-horizons-assets-prod/c3b1096e-23b4-4946-8835-5c8199a4ad3b/f63af81a480e9397b8bf730c054efd38.png" />
+                    src="/logo.png"  // هنا غيرت اللينك باش يشير للصورة في public
+                />
             </motion.div>
         </motion.div>
     );
