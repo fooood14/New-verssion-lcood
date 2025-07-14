@@ -26,7 +26,7 @@ const Logo = () => {
                 <img  
                     alt="شعار كود السياقة الإصدار الجديد" 
                     className="w-52 h-52 md:w-60 md:h-60 object-contain drop-shadow-lg"
-                    src="/logo.png"  // هنا غيرت اللينك باش يشير للصورة في public
+                    src="logo.png"  // هنا غيرت اللينك باش يشير للصورة في public
                 />
             </motion.div>
         </motion.div>
